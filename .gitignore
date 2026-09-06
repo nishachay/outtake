@@ -1,21 +1,25 @@
 # AI agent config (internal tooling, not project code)
 .agents/
 
-# Local development only
-local_uploads/
-
-# Old dev dashboard files (replaced by index.html, not needed in repo)
-/player.js
-/style.css
-/final_songs.js
-/songs.js
-
-
 # Node
 node_modules/
 
-# Local database (dev SQLite)
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Drizzle generated (keep local; schema lives in src/lib/schema.ts)
+drizzle/
+
+# Local database (dev SQLite/data) — no longer used, kept out of repo
 data/
+
+# Env
+.env
+.env.*
+!.env.example
 
 # Logs
 *.log
@@ -23,11 +27,13 @@ data/
 # OS
 .DS_Store
 Thumbs.db
-.env
-.env.*
-!.env.example
 
-# Scratch/utility scripts (used during dev, not needed in repo)
+# Local dev scratch (gitignored from the v2 era)
+local_uploads/
+player.js
+style.css
+final_songs.js
+songs.js
 parse_playlist.js
 generate_playlist_json.js
 read_markdown_dump.js
@@ -41,26 +47,18 @@ check_duplicates.js
 extract_all_metadata.js
 export_final.js
 fetch_durations.js
-
-# Raw scraped data (large file, not needed by users)
 yt_data.json
 
-# Discovery shortlists (harvested candidates awaiting human curation)
+# Legacy verification working artifacts (evidence kept committed: harvested.json)
 scripts/candidates.json
 scripts/weeknd_candidates.json
-# NOTE: scripts/harvested.json is COMMITTED on purpose — build_catalog.js aborts
-# unless every roster id has an active probe there, and the apply pipeline needs
-# it on a fresh CI checkout. It's the machine-verified evidence base for the catalog.
 scripts/.probe_cache.json
-
-# Verified-video probe results (derived data; regenerate with npm run db:verify)
 scripts/verified.json
 scripts/verified_legacy.json
 scripts/verified_legacy_artists.json
-
-# Internal tooling lock file
-skills-lock.json
-
-# Curated-artist bucketing + report (working artifacts, reproducible from playlists.json + harvested.json)
 scripts/artists_curate.json
 scripts/curate_report.txt
+
+# Tooling lock file
+skills-lock.json
+.neon

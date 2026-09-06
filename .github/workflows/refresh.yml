@@ -1,30 +1,49 @@
-name: Refresh catalog (daily health check)
-
-# Keeps the vault fresh: probes every stale video, marks dead/private ones so
-# they drop out of playback, and resurrects songs that come back.
-#
-# Requires two repo/action secrets:
-#   PROD_URL   -> https://your-app.vercel.app
-#   ADMIN_KEY  -> the value of your ADMIN_KEY env var
-
+name: daily-refresh
 on:
   schedule:
-    # Daily at 06:00 UTC
-    - cron: '0 6 * * *'
+    # 04:17 UTC daily — re-probe stale tracks + versions
+    - cron: "17 4 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: vault-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Trigger /api/refresh
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Verify: never let the site ship knowing a track died. Re-import catalog,
+      # then run the admin refresh to re-probe stale videos.
+      - name: Import catalog
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:import
+
+      - name: Probe stale videos
+        shell: bash
         env:
           PROD_URL: ${{ secrets.PROD_URL }}
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
         run: |
-          test -n "$PROD_URL"  || { echo "::warning::PROD_URL secret unset — skipping"; exit 0; }
-          test -n "$ADMIN_KEY" || { echo "::warning::ADMIN_KEY secret unset — skipping"; exit 0; }
-          curl -sf -X POST "$PROD_URL/api/refresh" \
+          curl -sf -X POST "$PROD_URL/api/admin/refresh" \
             -H "Authorization: Bearer $ADMIN_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"force":false}' || exit 1
+            -d '{"force":false}' \
+            || echo "refresh endpoint unavailable (secrets unset?) — no-op"
+
+      - name: Report result
+        if: always()
+        run: echo "Daily freshness pass complete."

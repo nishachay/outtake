@@ -1,18 +1,30 @@
-name: CI
-
+name: ci
 on:
   push:
-    branches: [main, new-ui]
+    branches: [main, nextjs-rewrite, new-ui]
   pull_request:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "22"
           cache: npm
-      - run: npm ci || npm install
-      - run: npm test
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          # No DATABASE_URL in CI — exercises the static-fallback path.
+          AUTH_SECRET: ci-only-secret-not-for-prod

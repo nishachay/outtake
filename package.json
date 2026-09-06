@@ -1,28 +1,40 @@
 {
   "name": "outtake",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "{ OUTTAKE } — unreleased music vault. Static frontend (index.html) + DB-backed API.",
-  "type": "commonjs",
-  "main": "dev.js",
-  "engines": {
-    "node": ">=22.5.0"
-  },
   "scripts": {
-    "start": "node dev.js",
-    "dev": "node dev.js",
-    "test": "node --test \"test/*.test.js\"",
-    "db:migrate": "node src/migrate.js",
-    "db:seed": "node scripts/import_catalog.js",
-    "db:export": "node scripts/export_catalog.js",
-    "db:verify": "node scripts/verify_legacy.js",
-    "db:build": "node scripts/build_catalog.js",
-    "db:discover": "node scripts/discover_youtube.js",
-    "db:sync": "node scripts/sync_bundled.js",
-    "db:add": "node scripts/add_tracks.js",
-    "db:apply": "node scripts/apply_pending.js"
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:import": "npx tsx --env-file=.env scripts/import-catalog.ts"
   },
   "dependencies": {
-    "pg": "^8.13.1"
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.38.0",
+    "next": "^15.5.25",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@neon/config": "^1.2.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.5.25",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
   }
 }
