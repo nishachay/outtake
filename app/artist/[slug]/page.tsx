@@ -1,16 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
-
-import CoverArt from "@/components/player/CoverArt";
-import { getArtistBySlug, getSongsForArtist } from "@/lib/dataloader";
-import { formatDuration, initials } from "@/lib/utils";
+import { getArtistBySlug, getCatalog, getSongsForArtist } from "@/lib/dataloader";
+import { toDeckSongs } from "@/lib/vault";
+import ArtistAvatar from "@/components/vault/ArtistAvatar";
+import ArtistClient from "@/components/vault/ArtistClient";
 
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
-  const { getCatalog } = await import("@/lib/dataloader");
+export function generateStaticParams() {
   return getCatalog().artists.map((a) => ({ slug: a.slug }));
 }
 
@@ -22,84 +21,63 @@ export async function generateMetadata({
   const { slug } = await params;
   const artist = getArtistBySlug(slug);
   if (!artist) return { title: "Artist not found" };
+  const count = getSongsForArtist(slug).filter((t) => !t.id.includes("__v")).length;
   return {
     title: artist.name,
-    description: `${artist.trackCount} verified tracks by ${artist.name} — currently playable originals on OUTTAKE.`,
+    description: `${count} verified unreleased tracks by ${artist.name} — every one machine-verified as playable.`,
   };
 }
 
-export default async function ArtistPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function ArtistPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const artist = getArtistBySlug(slug);
   if (!artist) notFound();
 
-  const tracks = getSongsForArtist(artist.slug).filter((t) => t.status === "active");
-  const canonical = tracks.filter((t) => !t.id.includes("__v"));
+  const tracks = getSongsForArtist(slug);
+  const canonicals = tracks.filter((t) => !t.id.includes("__v") && t.status === "active");
+  if (canonicals.length === 0) notFound();
+  const songs = toDeckSongs(canonicals, tracks);
 
   return (
-    <div className="container py-12">
-      <Link
-        href="/#vault"
-        className="inline-flex items-center gap-1.5 text-sm text-mut transition hover:text-fg"
-      >
-        <ArrowLeft size={15} /> Back to vault
-      </Link>
+    <>
+      <div>
+        <Link href="/" className="back-to-home-btn">
+          <ArrowLeft size={14} strokeWidth={1.75} />
+          <span>Back to All Artists</span>
+        </Link>
 
-      <header className="mt-8 flex items-center gap-6">
-        {artist.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={artist.avatarUrl}
-            alt={artist.name}
-            width={96}
-            height={96}
-            className="h-24 w-24 rounded-full object-cover"
-          />
-        ) : (
-          <span
-            className="grid h-24 w-24 place-items-center rounded-full text-3xl font-extrabold"
-            style={{ background: "var(--color-panel-2)", color: "var(--color-gold)" }}
-          >
-            {initials(artist.name)}
-          </span>
-        )}
-        <div>
-          <p className="chip">{artist.tag ?? "verified vault artist"}</p>
-          <h1 className="mt-2 text-4xl font-extrabold tracking-tight">
-            {artist.name}
-          </h1>
-          <p className="mt-1 text-mut">
-            {canonical.length} verified tracks · {tracks.length} playable cuts
-            incl. versions
-          </p>
-        </div>
-      </header>
-
-      <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {tracks.map((t) => (
-          <Link
-            key={t.id}
-            href={`/song/${encodeURIComponent(t.songId)}`}
-            className="group"
-          >
-            <CoverArt
-              seed={t.youtubeId}
-              title={t.title}
-              sublabel={t.label}
-              className="aspect-square transition group-hover:-translate-y-0.5"
-              titleClassName="text-sm"
+        <div className="artist-hero-banner">
+          <div className="artist-hero-avatar">
+            <ArtistAvatar
+              src={artist.avatarUrl}
+              name={artist.name}
+              initials={artist.initials}
+              variant="hero"
             />
-            <p className="mt-2 truncate text-sm font-medium">{t.title}</p>
-            <p className="text-xs text-mut">
-              {t.label ?? "Original"} · {formatDuration(t.durationSec)}
-            </p>
-          </Link>
-        ))}
+          </div>
+          <div className="artist-hero-meta">
+            <h1 className="artist-hero-name pixel-text">{artist.name}</h1>
+            <div className="artist-hero-sub">
+              {artist.tag ?? "Unreleased Vault & Studio Outtakes"}
+            </div>
+            <div className="artist-hero-badge">{songs.length} Unreleased Grails</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 20,
+            marginBottom: 12,
+          }}
+        >
+          <h2 className="section-pixel-title pixel-text">Artist Outtakes ({songs.length})</h2>
+        </div>
+
+        <ArtistClient songs={songs} slug={slug} />
       </div>
-    </div>
+    </>
   );
 }

@@ -1,35 +1,41 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Disc3 } from "lucide-react";
+import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 
-import ThemeToggle from "@/components/ui/ThemeToggle";
+import RootShell from "@/components/shell/RootShell";
 import "./globals.css";
 
 const SITE_URL = process.env.SITE_URL || "https://outtake.vercel.app";
 
+const display = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const body = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-body",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "OUTTAKE — verified archive of unreleased music",
+    default: "{ OUTTAKE } — Unreleased Music Vault",
     template: "%s — OUTTAKE",
   },
   description:
-    "A verified archive of unreleased music. Only current, playable YouTube originals — 288 tracks across 12 artists, every one machine-verified.",
-  openGraph: {
-    type: "website",
-    siteName: "OUTTAKE",
-    title: "OUTTAKE — verified archive of unreleased music",
-    description:
-      "Only current, playable YouTube originals. Every track machine-verified before it ships.",
-  },
+    "{ OUTTAKE } — Unreleased Music Vault & 3D Vinyl Turntable Player. Only currently-playable, machine-verified unreleased tracks.",
 };
 
 const themeScript = `
 (function () {
-  var t;
-  try { t = localStorage.getItem('outtake_theme'); } catch (e) {}
-  if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  document.documentElement.dataset.theme = t;
+  var t = null;
+  try { t = localStorage.getItem('theme'); } catch (e) {}
+  if (t !== 'light' && t !== 'dark') t = 'dark';
+  document.documentElement.setAttribute('data-theme', t);
 })();
 `;
 
@@ -37,50 +43,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-screen">
-        <header className="glass sticky top-0 z-40 border-b border-line">
-          <div className="container flex h-14 items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-              <Disc3 size={20} className="text-gold" strokeWidth={2.4} />
-              <span>
-                OUT<span className="text-gold">TAKE</span>
-              </span>
-            </Link>
-            <nav className="flex items-center gap-4">
-              <Link
-                href="/#vault"
-                className="text-sm text-mut transition hover:text-fg"
-              >
-                The Vault
-              </Link>
-              <Link
-                href="/#submit"
-                className="text-sm text-mut transition hover:text-fg"
-              >
-                Found a grail?
-              </Link>
-              <ThemeToggle />
-            </nav>
-          </div>
-        </header>
-
-        <main>{children}</main>
-
-        <footer className="border-t border-line py-10">
-          <div className="container flex flex-col items-start justify-between gap-4 text-sm text-mut md:flex-row md:items-center">
-            <p>
-              OUTTAKE · only playable, machine-verified originals. We never host
-              audio — we link to YouTube.
-            </p>
-            <p className="font-mono text-xs">
-              verified archive · 288 tracks · 12 artists
-            </p>
-          </div>
-        </footer>
+      <body>
+        <RootShell>{children}</RootShell>
       </body>
     </html>
   );
