@@ -81,7 +81,7 @@ export default function SongsAdminPage({ artists }: { artists: ArtistOpt[] }) {
   return (
     <div>
       <header className="mb-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">Add song / version</h1>
+        <h1 className="admin-h text-2xl font-extrabold tracking-tight">Add song / version</h1>
         <p className="mt-1 text-mut">
           Paste a URL — we probe it live. Approve only becomes available when playable.
         </p>
@@ -146,7 +146,12 @@ export default function SongsAdminPage({ artists }: { artists: ArtistOpt[] }) {
               </div>
               <p className="mt-2">Title: {probe.title || "—"}</p>
               <p>Author: {probe.author || "—"}</p>
-              <p>Duration: {probe.durationSec ? `${probe.durationSec}s` : "—"}</p>
+              <p>
+                Duration:{" "}
+                {probe.durationSec
+                  ? `${Math.floor(probe.durationSec / 60)}:${String(probe.durationSec % 60).padStart(2, "0")}`
+                  : "—"}
+              </p>
               {probe.error ? <p className="text-rose">{probe.error}</p> : null}
             </div>
           ) : null}

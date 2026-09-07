@@ -84,43 +84,77 @@ export default function PlayerSidebar() {
         </div>
 
         <div className="deck-info-box">
-          <div className="deck-header-row">
-            <div className="deck-title-block">
-              <h1 className="deck-title-text pixel-text">{song?.title ?? ""}</h1>
-              <div className="deck-artist-sub">{song?.artistName ?? ""}</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button
-                className={`deck-like-counter${liked ? " liked" : ""}`}
-                title="Like / Favorite Track"
-                onClick={() => song && player.toggleLike(song.songId)}
-                aria-label={liked ? "Unlike this track" : "Like this track"}
-                aria-pressed={liked}
-              >
-                <Heart
-                  size={14}
-                  strokeWidth={STROKE}
-                  fill={liked ? "#f87171" : "none"}
-                  stroke={liked ? "#f87171" : "currentColor"}
-                />
-                <span>{liked ? "Liked" : "Like"}</span>
-              </button>
-              <button
-                className={`deck-report-btn${player.reportState === "sent" || player.reportState === "queued" ? " reported" : ""}`}
-                title="Report Broken / Dead Video"
-                onClick={player.sendReport}
-                disabled={!song || player.reportState === "sending"}
-                aria-label="Report broken video"
-              >
-                {player.reportState === "sent" || player.reportState === "queued" ? (
-                  <Check size={14} strokeWidth={STROKE} />
-                ) : (
-                  <TriangleAlert size={14} strokeWidth={STROKE} />
-                )}
-              </button>
-            </div>
-          </div>
-          {reportLabel && <div className="deck-report-note">{reportLabel}</div>}
+          {song ? (
+            <>
+              <div className="deck-header-row">
+                <div className="deck-title-block">
+                  <h1 className="deck-title-text pixel-text" title={song.title}>
+                    {song.title}
+                  </h1>
+                  <div className="deck-artist-sub">{song.artistName}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    className={`deck-like-counter${liked ? " liked" : ""}`}
+                    title="Like / Favorite Track"
+                    onClick={() => song && player.toggleLike(song.songId)}
+                    aria-label={liked ? "Unlike this track" : "Like this track"}
+                    aria-pressed={liked}
+                  >
+                    <Heart
+                      size={14}
+                      strokeWidth={STROKE}
+                      fill={liked ? "#f87171" : "none"}
+                      stroke={liked ? "#f87171" : "currentColor"}
+                    />
+                    <span>{liked ? "Liked" : "Like"}</span>
+                  </button>
+                  <button
+                    className={`deck-report-btn${player.reportState === "sent" || player.reportState === "queued" ? " reported" : ""}`}
+                    title="Report Broken / Dead Video"
+                    onClick={player.sendReport}
+                    disabled={!song || player.reportState === "sending"}
+                    aria-label="Report broken video"
+                  >
+                    {player.reportState === "sent" || player.reportState === "queued" ? (
+                      <Check size={14} strokeWidth={STROKE} />
+                    ) : (
+                      <TriangleAlert size={14} strokeWidth={STROKE} />
+                    )}
+                  </button>
+                </div>
+              </div>
+              {reportLabel && <div className="deck-report-note">{reportLabel}</div>}
+            </>
+          ) : (
+            <>
+              <div className="deck-title-block">
+                <h1 className="deck-title-text pixel-text">The deck is quiet</h1>
+                <div className="deck-artist-sub">Pick a grail from the vault to start</div>
+              </div>
+              {player.lastSong && (
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="back-to-home-btn"
+                    style={{ marginBottom: 0, maxWidth: "100%" }}
+                    onClick={player.resumeLast}
+                    title={`Resume ${player.lastSong.title}`}
+                  >
+                    <Play size={14} strokeWidth={STROKE} fill="currentColor" />
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Resume — {player.lastSong.title}
+                    </span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {song && song.sources.length > 1 && (
@@ -173,6 +207,10 @@ export default function PlayerSidebar() {
             aria-valuenow={Math.round(player.cur)}
             tabIndex={0}
             onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                // Handled here — keep the global track shortcuts out of it.
+                e.stopPropagation();
+              }
               if (e.key === "ArrowRight") player.seek(Math.min(1, pct + 0.02));
               if (e.key === "ArrowLeft") player.seek(Math.max(0, pct - 0.02));
             }}

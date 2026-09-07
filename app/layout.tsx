@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 
 import RootShell from "@/components/shell/RootShell";
@@ -28,6 +28,10 @@ export const metadata: Metadata = {
   },
   description:
     "{ OUTTAKE } — Unreleased Music Vault & 3D Vinyl Turntable Player. Only currently-playable, machine-verified unreleased tracks.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#121214",
 };
 
 const themeScript = `

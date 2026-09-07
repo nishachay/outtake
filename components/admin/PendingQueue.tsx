@@ -65,7 +65,7 @@ export default function PendingAdminPage() {
     <div>
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Pending queue</h1>
+          <h1 className="admin-h text-2xl font-extrabold tracking-tight">Pending queue</h1>
           <p className="mt-1 text-mut">Public submissions waiting for verification.</p>
         </div>
         <button className="btn btn-ghost" onClick={load} disabled={loading}>
@@ -90,7 +90,7 @@ export default function PendingAdminPage() {
           {items.map((p) => (
             <li key={p.id} className="card flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0">
-                <p className="break-all font-mono text-sm text-gold">{p.youtubeUrl}</p>
+                <p className="break-all font-mono text-sm text-fg">{p.youtubeUrl}</p>
                 <p className="mt-1 truncate text-sm">
                   {p.suggestedArtist ? <span className="font-semibold">{p.suggestedArtist}</span> : null}
                   {p.suggestedArtist && p.suggestedTitle ? " · " : ""}

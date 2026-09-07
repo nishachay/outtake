@@ -60,7 +60,9 @@ export default function TrackRow({ song, pos, queue, queueKey }: TrackRowProps) 
           />
         </div>
         <div className="row-details">
-          <div className="row-title">{song.title}</div>
+          <div className="row-title" title={song.title}>
+            {song.title}
+          </div>
           <div className="row-sub">
             {song.artistName} · {fmtTime(song.durationSec)}
           </div>

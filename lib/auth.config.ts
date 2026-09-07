@@ -17,8 +17,10 @@ export const authConfig = {
   secret: process.env.AUTH_SECRET || "outtake-local-dev-secret-change-me",
   callbacks: {
     // Middleware gate: /admin/* requires an authenticated session (see middleware.ts).
+    // The sign-in page itself must stay public, or logins redirect-loop forever.
     async authorized({ auth, request }) {
       const { pathname } = new URL(request.url);
+      if (pathname === "/admin/login") return true;
       if (pathname.startsWith("/admin")) return !!auth?.user;
       return true;
     },

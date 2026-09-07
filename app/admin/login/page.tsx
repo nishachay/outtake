@@ -22,15 +22,13 @@ export default function AdminLoginPage() {
   return (
     <div className="container flex min-h-[70vh] items-center justify-center py-16">
       <div className="card w-full max-w-sm p-8 text-center">
-        <p className="text-2xl font-extrabold tracking-tight">
-          OUT<span className="text-gold">TAKE</span>
-        </p>
+        <p className="admin-h text-2xl font-extrabold tracking-tight">{"{ OUTTAKE }"}</p>
         <p className="mt-2 text-sm text-mut">Admin — sign in to manage the vault.</p>
 
         <button
           onClick={onLogin}
           disabled={loading}
-          className="btn mt-6 w-full border border-line hover:bg-panel-2"
+          className="btn btn-ghost mt-6 w-full"
         >
           {loading ? (
             <Loader2 size={16} className="animate-spin" />

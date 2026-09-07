@@ -64,18 +64,6 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 20,
-            marginBottom: 12,
-          }}
-        >
-          <h2 className="section-pixel-title pixel-text">Artist Outtakes ({songs.length})</h2>
-        </div>
-
         <ArtistClient songs={songs} slug={slug} />
       </div>
     </>

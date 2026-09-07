@@ -57,37 +57,63 @@
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition select-none;
   }
   .btn-gold {
-    background: var(--color-gold);
-    color: #17140a;
+    background: var(--pill-active-bg);
+    color: var(--pill-active-text);
+  }
+  .btn-gold:hover:not(:disabled) {
+    transform: scale(1.02);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
   .btn-ghost {
-    border: 1px solid var(--color-line);
-    color: var(--color-fg);
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    color: var(--text-primary);
   }
-  .btn-ghost:hover {
-    background: color-mix(in srgb, var(--color-fg) 6%, transparent);
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface-card-hover);
+    border-color: var(--border-card-hover);
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs;
-    border-color: var(--color-line);
-    color: var(--color-mut);
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs;
+    border-color: var(--pill-border);
+    background: var(--pill-bg);
+    color: var(--text-secondary);
   }
   .input {
-    @apply w-full rounded-xl border border-line bg-panel px-4 py-2.5 text-sm;
-    background: var(--color-panel);
-    color: var(--color-fg);
+    @apply w-full px-4 py-2.5 text-sm;
+    background: var(--pill-bg);
+    border: 1px solid var(--pill-border);
+    border-radius: 12px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .input::placeholder {
+    color: var(--text-muted);
   }
   .input:focus {
-    outline: 2px solid color-mix(in srgb, var(--color-gold) 55%, transparent);
-    outline-offset: 0;
+    border-color: var(--border-card-hover);
+    background: var(--surface-card-hover);
   }
   .label {
-    @apply mb-1.5 block text-xs font-medium;
-    color: var(--color-mut);
+    @apply mb-1.5 block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
   }
   .card {
-    @apply rounded-2xl border border-line bg-panel;
-    background: var(--color-panel);
+    background: var(--surface-card);
+    border: 1px solid var(--border-card);
+    border-radius: 20px;
+  }
+  .admin-h {
+    font-family: var(--display-font);
+    letter-spacing: -0.02em;
   }
   .glass {
     background: color-mix(in srgb, var(--color-panel) 72%, transparent);
@@ -197,14 +223,14 @@
   letter-spacing: -0.02em;
 }
 
-#app button {
+:where(#app) button {
   background: none;
   border: none;
   cursor: pointer;
   font-family: inherit;
   color: inherit;
 }
-#app input {
+:where(#app) input {
   font-family: inherit;
 }
 
@@ -1133,10 +1159,12 @@
   text-underline-offset: 4px;
 }
 
-/* SPOTIFY HERO BANNER & QUICK PICKS GRID */
+/* SPOTIFY HERO BANNER & QUICK PICKS GRID — owned vault art, no hotlinks */
 .spotify-hero-banner {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%), url("https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1200&auto=format&fit=crop");
-  background-size: cover;
+  background: radial-gradient(120% 140% at 85% 8%, rgba(244, 63, 94, 0.16), rgba(244, 63, 94, 0) 55%),
+    repeating-radial-gradient(circle at 88% 62%, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 3px),
+    radial-gradient(130% 150% at 50% 0%, #1d2942 0%, #0f172a 55%, #090e1b 100%);
+  background-size: auto;
   background-position: center;
   border-radius: 20px;
   padding: 28px 24px;
@@ -1144,6 +1172,37 @@
   position: relative;
   overflow: hidden;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+}
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+.hero-ghost {
+  position: absolute;
+  right: 6px;
+  bottom: -34px;
+  z-index: 0;
+  font-family: var(--display-font);
+  font-weight: 800;
+  font-size: 168px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+  user-select: none;
+}
+.hero-catno {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  z-index: 1;
+  font-family: var(--body-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.38);
+  pointer-events: none;
+  user-select: none;
 }
 .hero-tag {
   font-size: 11px;
@@ -1185,6 +1244,33 @@
 .hero-play-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3);
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hero-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-family: var(--body-font);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hero-ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
 }
 
 .quick-picks-grid {
@@ -1294,6 +1380,9 @@
   border-color: var(--text-primary);
   transform: scale(1.06);
   background: var(--pill-active-bg);
+  color: var(--pill-active-text);
+}
+.artist-card-item:hover .artist-card-avatar .av-avatar-fb {
   color: var(--pill-active-text);
 }
 .artist-card-avatar .av-img {
@@ -1774,6 +1863,12 @@
   max-width: 440px;
   width: 90%;
   position: relative;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] .modal-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
 }
 .modal-close {
   position: absolute;
@@ -1785,27 +1880,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #8e8e93;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  background: var(--pill-bg);
+  transition: color 0.15s ease;
 }
 .modal-close:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 .modal-title {
   font-family: var(--display-font);
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 4px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 .modal-sub {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-bottom: 16px;
 }
 .modal-body {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 12px;
 }
@@ -1822,17 +1918,18 @@
   height: 32px;
   padding: 0 14px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
   font-family: var(--body-font);
   font-size: 12px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   text-decoration: none;
   transition: all 0.15s ease;
 }
 .modal-pill-link:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--surface-card-hover);
+  border-color: var(--border-card-hover);
 }
 
 #yt-mount {
@@ -1843,6 +1940,26 @@
   bottom: 0;
   left: 0;
   pointer-events: none;
+}
+
+/* ── Keyboard focus is always visible ── */
+:where(#app) :focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* ── Respect reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  :where(#app) *,
+  :where(#app) *::before,
+  :where(#app) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .vinyl-group {
+    animation: none;
+  }
 }
 
 /* ── Vault empty state (dashed box) ── */
@@ -1943,7 +2060,7 @@
   font-weight: 600;
 }
 .vault-form-note.ok {
-  color: #f87171;
+  color: #34d399;
 }
 .vault-form-note.err {
   color: #f87171;

@@ -25,6 +25,7 @@ declare global {
 const LIKES_KEY = "m2d_likes_v1";
 const VERSION_KEY = "m2d_version_pref_v1";
 const REPORT_KEY = "m2d_reports_v1";
+const LAST_KEY = "m2d_last_song_v1";
 
 export type ReportState = "idle" | "sending" | "sent" | "queued";
 
@@ -47,6 +48,8 @@ interface PlayerContextValue {
   repeat: boolean;
   reportState: ReportState;
   likedCount: number;
+  lastSong: DeckSong | null;
+  resumeLast: () => void;
   loadList: (queue: DeckSong[], queueKey: string) => void;
   playQueue: (queue: DeckSong[], index: number, queueKey: string, forceSrcKey?: string) => void;
   toggle: () => void;
@@ -109,6 +112,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   );
   const [versionPrefs, setVersionPrefs] = useState<Record<string, string>>(() =>
     typeof window === "undefined" ? {} : readJson<Record<string, string>>(VERSION_KEY, {}),
+  );
+  const [lastSong, setLastSong] = useState<DeckSong | null>(() =>
+    typeof window === "undefined" ? null : readJson<DeckSong | null>(LAST_KEY, null),
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,18 +192,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [playSource],
   );
 
-  /** Register a stage list as the current queue context (no autoplay). */
+  /** Register a stage list as the queue context (no autoplay).
+   *  Carries the deck position when the current song is in the new list,
+   *  so navigating mid-play never blanks the deck. */
   const loadList = useCallback((nextQueue: DeckSong[], nextKey: string) => {
-    setQueue((prevQueue) => {
-      void prevQueue;
-      return nextQueue;
-    });
+    const { queue: q, index: i, srcKey: cur } = live.current;
+    const curSong = i >= 0 && i < q.length ? q[i] : null;
+    const carry = curSong ? nextQueue.findIndex((s) => s.songId === curSong.songId) : -1;
+    setQueue(nextQueue);
     setQueueKey(nextKey);
-    setIndex(-1);
-    setSrcKey("canonical");
-    setReportState("idle");
-    setCur(0);
-    setTot(0);
+    if (curSong && carry >= 0) {
+      const s = nextQueue[carry];
+      setIndex(carry);
+      setSrcKey(s.sources.some((x) => x.key === cur) ? cur : (s.sources[0]?.key ?? "canonical"));
+    } else {
+      setIndex(-1);
+      setSrcKey("canonical");
+      setReportState("idle");
+      setCur(0);
+      setTot(0);
+    }
   }, []);
 
   const toggle = useCallback(() => {
@@ -490,13 +504,30 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     scrubbingRef.current = v;
   }, []);
 
-  // ── Keyboard controls (ignored while typing) ──
+  // ── Keyboard controls.
+  // Typing always wins; Space/arrows on a focused control belong to that
+  // control (prevents double-toggles and seek-vs-track-change fights).
+  // Escape always collapses the deck.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (e.code === "Escape") setSidebarOpen(false);
-      else if (e.code === "Space") {
+      if (e.code === "Escape") {
+        setSidebarOpen(false);
+        return;
+      }
+      if (
+        t &&
+        (t.tagName === "BUTTON" ||
+          t.tagName === "A" ||
+          t.tagName === "SELECT" ||
+          t.getAttribute("role") === "button" ||
+          t.getAttribute("role") === "slider" ||
+          t.getAttribute("role") === "link")
+      ) {
+        return;
+      }
+      if (e.code === "Space") {
         e.preventDefault();
         toggleRef.current();
       } else if (e.code === "ArrowRight") {
@@ -517,6 +548,36 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const prevRef = useRef(prev);
   prevRef.current = prev;
 
+  // ── Remember the last played song for "Resume" on an empty deck ──
+  const songId = song?.songId;
+  useEffect(() => {
+    if (!song) return;
+    try {
+      localStorage.setItem(LAST_KEY, JSON.stringify(song));
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songId]);
+
+  const resumeLast = useCallback(() => {
+    const saved = readJson<DeckSong | null>(LAST_KEY, null);
+    const target = saved ?? lastSongRef.current;
+    if (target && target.sources?.length) playQueue([target], 0, "resume");
+  }, [playQueue]);
+  const lastSongRef = useRef(lastSong);
+  lastSongRef.current = lastSong;
+
+  // ── Tab title follows playback ──
+  const songTitle = song?.title;
+  useEffect(() => {
+    if (songTitle) {
+      document.title = `${playing ? "▶ " : ""}${songTitle} — OUTTAKE`;
+    } else {
+      document.title = "{ OUTTAKE } — Unreleased Music Vault";
+    }
+  }, [songTitle, playing]);
+
   const value: PlayerContextValue = {
     queue,
     queueKey,
@@ -536,6 +597,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     repeat,
     reportState,
     likedCount: likedIds.length,
+    lastSong,
+    resumeLast,
     loadList,
     playQueue,
     toggle,

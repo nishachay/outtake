@@ -4,9 +4,10 @@
 
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Heart, Play } from "lucide-react";
+import { Heart, Play, Shuffle } from "lucide-react";
 import { usePlayer } from "@/components/shell/player-context";
 import type { DeckSong } from "@/lib/vault";
+import { vaultCatno, vaultInitial, vaultSide } from "@/lib/vault";
 import VaultCover from "./VaultCover";
 import TrackRow from "./TrackRow";
 import ArtistAvatar from "./ArtistAvatar";
@@ -85,6 +86,11 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
           <div className="vault-empty">
             <Heart size={24} strokeWidth={1.75} />
             No unreleased grails found matching your criteria.
+            <div style={{ marginTop: 12 }}>
+              <Link href="/submit" className="back-to-home-btn" style={{ marginBottom: 0 }}>
+                Found it elsewhere? Submit this grail
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="playlists-list">
@@ -105,9 +111,14 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
     <>
       {hero && (
         <div className="spotify-hero-banner">
+          <span className="hero-ghost" aria-hidden="true">
+            {vaultInitial(hero.title)}
+          </span>
           <div className="hero-content">
             <div className="hero-tag">Featured Vault Outtake</div>
-            <h1 className="hero-title pixel-text">{hero.title}</h1>
+            <h1 className="hero-title pixel-text" title={hero.title}>
+              {hero.title}
+            </h1>
             <p className="hero-artist">
               {hero.artistName} · Unreleased Studio Session
             </p>
@@ -116,8 +127,22 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
                 <Play size={16} strokeWidth={1.75} fill="currentColor" />
                 <span>Listen Outtake</span>
               </button>
+              <button
+                className="hero-ghost-btn"
+                title="Play a random grail from the vault"
+                onClick={() =>
+                  player.playQueue(songs, Math.floor(Math.random() * songs.length), "home")
+                }
+              >
+                <Shuffle size={15} strokeWidth={1.75} />
+                <span>Shuffle a grail</span>
+              </button>
             </div>
           </div>
+          <span className="hero-catno" aria-hidden="true">
+            {vaultCatno({ id: hero.songId, title: hero.title })} · SIDE{" "}
+            {vaultSide({ id: hero.songId, title: hero.title })}
+          </span>
         </div>
       )}
 
@@ -132,7 +157,9 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
                 <VaultCover id={s.songId} title={s.title} artist={s.artistName} durationSec={s.durationSec} variant="mini" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="quick-pick-title">{s.title}</div>
+                <div className="quick-pick-title" title={s.title}>
+                  {s.title}
+                </div>
                 <div className="quick-pick-artist">{s.artistName}</div>
               </div>
             </button>
@@ -175,7 +202,9 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
               </div>
               <div className="card-footer-row">
                 <div className="card-meta">
-                  <div className="card-title">{s.title}</div>
+                  <div className="card-title" title={s.title}>
+                    {s.title}
+                  </div>
                   <div className="card-artist">{s.artistName}</div>
                 </div>
                 <div className="card-controls-cluster">

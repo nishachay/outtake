@@ -53,7 +53,7 @@ export default async function AdminDashboardPage() {
     <div>
       <header className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
+          <h1 className="admin-h text-2xl font-extrabold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-mut">The health of the vault at a glance.</p>
         </div>
         <form

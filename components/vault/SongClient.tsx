@@ -1,7 +1,8 @@
-/** Song detail actions — play in the deck + version chips, vault-styled. */
+/** Song detail actions — play in the deck + version chips + share, vault-styled. */
 "use client";
 
-import { Play } from "lucide-react";
+import { useState } from "react";
+import { Check, Link2, Play } from "lucide-react";
 import { usePlayer } from "@/components/shell/player-context";
 import type { DeckSong } from "@/lib/vault";
 
@@ -13,6 +14,7 @@ interface SongClientProps {
 
 export default function SongClient({ song, artistSongs, queueKey }: SongClientProps) {
   const player = usePlayer();
+  const [copied, setCopied] = useState(false);
   const pos = Math.max(
     0,
     artistSongs.findIndex((s) => s.songId === song.songId),
@@ -30,6 +32,26 @@ export default function SongClient({ song, artistSongs, queueKey }: SongClientPr
     player.playQueue(artistSongs, pos, queueKey, key);
   };
 
+  const share = async () => {
+    const url = `${window.location.origin}/song/${song.songId}`;
+    const title = `${song.title} — ${song.artistName}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch {
+        /* dismissed — fall through to clipboard */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
   return (
     <>
       <div className="detail-actions">
@@ -39,6 +61,14 @@ export default function SongClient({ song, artistSongs, queueKey }: SongClientPr
         >
           <Play size={16} strokeWidth={1.75} fill="currentColor" />
           <span>Play Outtake</span>
+        </button>
+        <button className="back-to-home-btn" style={{ marginBottom: 0 }} onClick={share}>
+          {copied ? (
+            <Check size={14} strokeWidth={1.75} />
+          ) : (
+            <Link2 size={14} strokeWidth={1.75} />
+          )}
+          <span>{copied ? "Link copied" : "Share"}</span>
         </button>
       </div>
       {song.sources.length > 1 && (

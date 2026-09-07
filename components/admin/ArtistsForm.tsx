@@ -53,7 +53,7 @@ export default function ArtistsAdminPage({
   return (
     <div>
       <header className="mb-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">Artists</h1>
+        <h1 className="admin-h text-2xl font-extrabold tracking-tight">Artists</h1>
         <p className="mt-1 text-mut">Add an artist or review the roster.</p>
       </header>
 
@@ -91,7 +91,7 @@ export default function ArtistsAdminPage({
           <h2 className="mb-4 font-bold">Roster ({artists.length})</h2>
           <ul className="grid gap-2 sm:grid-cols-2">
             {artists.map((a) => (
-              <li key={a.slug} className="rounded-lg border border-line px-3 py-2">
+              <li key={a.slug} className="rounded-xl border border-line px-3 py-2">
                 <p className="text-sm font-semibold">{a.name}</p>
                 <p className="text-xs text-mut">
                   {a.activeCount}/{a.trackCount} playable · /artist/{a.slug}
