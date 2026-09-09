@@ -60,7 +60,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
             <div className="artist-hero-sub">
               {artist.tag ?? "Unreleased Vault & Studio Outtakes"}
             </div>
-            <div className="artist-hero-badge">{songs.length} Unreleased Grails</div>
+            <div className="artist-hero-badge">{songs.length} Unreleased Outtakes</div>
           </div>
         </div>
 

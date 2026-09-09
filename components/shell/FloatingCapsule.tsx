@@ -22,13 +22,7 @@ export default function FloatingCapsule() {
       }}
     >
       <div className="fnp-thumb">
-        <VaultCover
-          id={song.songId}
-          title={song.title}
-          artist={song.artistName}
-          durationSec={song.durationSec}
-          variant="mini"
-        />
+        <VaultCover id={song.songId} title={song.title} artistSlug={song.artistSlug} artistName={song.artistName} />
       </div>
       <div className="fnp-info">
         <span className="fnp-title">{song.title}</span>

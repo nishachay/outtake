@@ -10,32 +10,6 @@ export interface VersionSource {
   vid: string;
 }
 
-/** A canonical song with its ordered playable sources for the deck. */
-export interface DeckSong {
-  id: string;
-  songId: string;
-  title: string;
-  artistName: string;
-  artistSlug: string;
-  youtubeId: string;
-  durationSec: number | null;
-  sources: VersionSource[];
-}
-
-/** Original vault palettes: [ink, deep, accent]. */
-export const VAULT_PALETTES: Array<[string, string, string]> = [
-  ["#16181f", "#1e2a4a", "#2e5b8a"], // ink slate → steel blue
-  ["#10181c", "#12323a", "#14606b"], // ink petrol
-  ["#131b17", "#123226", "#176b46"], // ink emerald
-  ["#19131f", "#2a1c40", "#4a2f7a"], // ink amethyst (muted)
-  ["#1b1318", "#3a1d27", "#8a2f43"], // ink rose
-  ["#171411", "#2e2417", "#8a6430"], // ink bronze
-  ["#10151d", "#1a2636", "#294e75"], // ink night navy
-  ["#0f1a1d", "#153a40", "#1f6a6b"], // ink deep teal
-  ["#19131c", "#33203f", "#6a3060"], // ink plum
-  ["#1a1410", "#3a2015", "#7a3a16"], // ink ember
-];
-
 function seedOf(song: { id?: string; youtubeId?: string; title?: string }): string {
   return song.id || song.youtubeId || song.title || "";
 }
@@ -51,17 +25,64 @@ export function vaultHash(song: { id?: string; youtubeId?: string; title?: strin
   return h >>> 0;
 }
 
-export function vaultPalette(song: { id?: string; youtubeId?: string; title?: string }): [string, string, string] {
-  return VAULT_PALETTES[vaultHash(song) % VAULT_PALETTES.length];
+/** A canonical song with its ordered playable sources for the deck. */
+export interface DeckSong {
+  id: string;
+  songId: string;
+  title: string;
+  artistName: string;
+  artistSlug: string;
+  youtubeId: string;
+  durationSec: number | null;
+  sources: VersionSource[];
 }
 
-/** Per-song accent color for covers + the dyed vinyl label. */
+/** Generative cover duotones: deep base, lifted top, jewel accent. */
+export interface CoverDuo {
+  bg: string;
+  hi: string;
+  accent: string;
+}
+
+export const COVER_DUOTONES: CoverDuo[] = [
+  { bg: "#0f1216", hi: "#1b2430", accent: "#5b8fd4" }, // steel blue
+  { bg: "#0f1513", hi: "#182b26", accent: "#3fae8f" }, // petrol green
+  { bg: "#111410", hi: "#1e2b1c", accent: "#6fa055" }, // moss
+  { bg: "#141016", hi: "#261c33", accent: "#9a6fd0" }, // amethyst
+  { bg: "#150f13", hi: "#2b1a24", accent: "#d4698a" }, // rose
+  { bg: "#131110", hi: "#292019", accent: "#c08a4d" }, // bronze
+  { bg: "#0e141b", hi: "#17293d", accent: "#4d9bd4" }, // night navy
+  { bg: "#0e1515", hi: "#16302f", accent: "#3fb3ae" }, // deep teal
+  { bg: "#140f15", hi: "#2a1c30", accent: "#b06fc0" }, // plum
+  { bg: "#141009", hi: "#2c2113", accent: "#d08a3e" }, // ember
+  { bg: "#101014", hi: "#22222e", accent: "#8a8fa8" }, // moon gray
+  { bg: "#120e0e", hi: "#2a1a1a", accent: "#d05a5a" }, // oxblood red
+];
+
+/** Per-song accent color — feeds the dyed vinyl label + cover accent bar. */
 export function vaultAccent(song: { id?: string; youtubeId?: string; title?: string }): string {
-  return vaultPalette(song)[2];
+  return COVER_DUOTONES[vaultHash(song) % COVER_DUOTONES.length].accent;
 }
 
-export function vaultCoverVars(song: { id?: string; youtubeId?: string; title?: string }): React.CSSProperties {
-  return { "--coverAccent": vaultAccent(song) } as React.CSSProperties;
+/** Deterministic photographic treatment per song: focal crop, zoom, shade.
+ *  Same portrait, different framing — like contact-sheet variations. */
+export interface CoverTreatment {
+  accent: string;
+  position: string;
+  scale: number;
+  shade: number;
+}
+
+const FOCAL_POINTS = ["50% 22%", "50% 35%", "50% 48%", "36% 30%", "64% 30%"];
+
+export function coverTreatment(song: { id?: string; youtubeId?: string; title?: string }): CoverTreatment {
+  const h = vaultHash(song);
+  return {
+    accent: vaultAccent(song),
+    position: FOCAL_POINTS[h % FOCAL_POINTS.length],
+    scale: 1.06 + ((h >>> 4) % 5) * 0.05,
+    shade: 0.42 + ((h >>> 9) % 3) * 0.09,
+  };
 }
 
 export function vaultCatno(song: { id?: string; youtubeId?: string; title?: string }): string {

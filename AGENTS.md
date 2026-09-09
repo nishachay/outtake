@@ -15,7 +15,7 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 
 **Static-first public site**: `/`, `/artist/[slug]`, `/song/[slug]` are SSG + ISR (`revalidate = 3600`, `generateStaticParams`) with `<title>`/meta/OG/Schema.org. Content reads the bundled `scripts/catalog.json` via `lib/dataloader.ts` — so the public site works with zero DB and stays SEO-friendly (works without JS).
 
-**Single serverless API**: `app/api/[...path]/route.ts` is the one catch-all function (Hobby-safe, ≤12 funcs). Public: `health`, `artists`, `songs` (`?all=1`), `songs/:id`, `report` (POST), `submit` (POST "found a grail"). Admin (Bearer `ADMIN_KEY` or an authenticated GitHub session via `lib/auth.ts`): `verify?url=`, `pending`, `approve`, `reject`, `artists`, `songs`, `refresh`. All logic lives in `lib/api-core.ts` (returns `ApiError(status,msg)` → JSON `{error}`).
+**Single serverless API**: `app/api/[...path]/route.ts` is the one catch-all function (Hobby-safe, ≤12 funcs). Public: `health`, `artists`, `songs` (`?all=1`), `songs/:id`, `report` (POST), `submit` (POST "found an outtake"). Admin (Bearer `ADMIN_KEY` or an authenticated GitHub session via `lib/auth.ts`): `verify?url=`, `pending`, `approve`, `reject`, `artists`, `songs`, `refresh`. All logic lives in `lib/api-core.ts` (returns `ApiError(status,msg)` → JSON `{error}`).
 
 **DB**: Neon Postgres, Drizzle. Schema in `lib/schema.ts` — `artists`, `songs`, `song_versions`, `reports`, `pending_submissions` (+ relations). Client in `lib/db.ts` (neon-http; returns `null` when `DATABASE_URL` unset so the app degrades to the static bundle). Never write raw SQL outside `lib/*`. Timezones: all timestamps ISO TEXT written by the app.
 
@@ -30,9 +30,11 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 
 ## Components & design
 
-- `components/player/` — `SongPlayer` (vinyl + label cover + optional versions), `CoverArt` (deterministic "vault label" cover from `lib/cover.ts` `VAULT_PALETTES`/`coverHash`; never scraped YouTube thumbnails). `components/SubmitForm.tsx` (public "found a grail"), `components/ReportButton.tsx`.
-- `components/admin/` — `ArtistsForm`, `SongsForm` (probe → approve flow), `PendingQueue`.
-- Design tokens in `app/globals.css` (`@theme`): `--color-*` vars, dark/light via `[data-theme]`, vinyl/label-cover/grain classes. Keep the modern vault feel; no hardcoded hex outside tokens.
+- `components/shell/` — persistent vault canvas: `AppShell` (rail + stage + deck), `PlayerSidebar` (turntable deck), `LeftRail`, `FloatingCapsule`, `AboutModal`, `Turntable` (SVG deck, no text), `player-context.tsx` (YT-iframe engine: queue, versions, likes, seek, shortcuts, reports).
+- `components/vault/` — `VaultCover` (artist portrait under dark archival treatment + seeded crop/zoom/shade + accent bar; no text, never thumbnails), `TrackRow`, `HomeClient`/`ArtistClient`/`SongClient` (stage views), `SubmitForm`, `ArtistAvatar` (initials fallback). Brand is the `{ OUTTAKE }` wordmark only — no glyph.
+- `components/admin/` — `ArtistsForm`, `SongsForm` (probe → approve flow), `PendingQueue`. Admin pages live under `app/admin/(vault)/` (auth-guarded layout); `app/admin/login/` stays outside the guard or logins redirect-loop.
+- Portraits: self-hosted face crops in `public/assets/artists/` (Wikimedia Commons leads, visually reviewed; provenance in `scripts/portrait-credits.json`, credited in About modal). Never hotlink social CDNs (expiring URLs).
+- Design tokens in `app/globals.css`: vault vars (`--bg-canvas`, `--pill-*`, monochrome + `#f43f5e`/`#f87171` red only); light mode is warm paper (`#e7e4dc` canvas), not inverted dark. Covers/hero/turntable stay dark in both themes. Copy rule: tracks are "outtakes", never "grails".
 
 ## Env
 
@@ -41,9 +43,9 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 ## Deploy / CI
 
 - Vercel Hobby: Next.js preset, no `vercel.json` needed. One catch-all API function keeps the function count at 1.
-- `.github/workflows/ci.yml`: on push/PR to `main`/`nextjs-rewrite`/`new-ui` → `npm ci`, `npx tsc --noEmit`, `npm run build` (no DATABASE_URL → exercises static-fallback).
+- `.github/workflows/ci.yml`: on push/PR to `main` → `npm ci`, `npx tsc --noEmit`, `npm run build` (no DATABASE_URL → exercises static-fallback).
 - `.github/workflows/refresh.yml`: daily `17 4 * * *` (+ manual dispatch) → `npm run db:import` then `POST $PROD_URL/api/admin/refresh` with `Authorization: Bearer $ADMIN_KEY`. No-op with a warning when secrets are unset.
-- `nextjs-rewrite` is the active dev branch; `main` (legacy static) and `Grails`/`new-ui` are older.
+- `main` is the only branch; retired lines survive as tags (`archive/vanilla-ui`, `archive/new-ui`, `archive/grails`).
 
 ## Conventions
 

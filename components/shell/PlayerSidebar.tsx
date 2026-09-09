@@ -130,7 +130,7 @@ export default function PlayerSidebar() {
             <>
               <div className="deck-title-block">
                 <h1 className="deck-title-text pixel-text">The deck is quiet</h1>
-                <div className="deck-artist-sub">Pick a grail from the vault to start</div>
+                <div className="deck-artist-sub">Pick an outtake from the vault to start</div>
               </div>
               {player.lastSong && (
                 <div style={{ marginTop: 12 }}>

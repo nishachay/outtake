@@ -106,10 +106,10 @@ export default function ArtistClient({ songs, slug }: ArtistClientProps) {
       {visible.length === 0 ? (
         <div className="vault-empty">
           <Heart size={24} strokeWidth={1.75} />
-          No unreleased grails found matching your criteria.
+          No unreleased outtakes found matching your criteria.
           <div style={{ marginTop: 12 }}>
             <Link href="/submit" className="back-to-home-btn" style={{ marginBottom: 0 }}>
-              Found it elsewhere? Submit this grail
+              Found it elsewhere? Submit this outtake
             </Link>
           </div>
         </div>

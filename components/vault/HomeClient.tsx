@@ -1,4 +1,4 @@
-/** Home discovery canvas: hero spotlight, quick picks, artists, trending grails.
+/** Home discovery canvas: hero spotlight, quick picks, artists, trending outtakes.
  *  Also hosts search-results and favorites views driven by the rail. */
 "use client";
 
@@ -54,7 +54,7 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 className="section-pixel-title pixel-text">Favorites</h2>
           <span className="view-all-link">
-            {favorites.length} Liked Grail{favorites.length === 1 ? "" : "s"}
+            {favorites.length} Liked Outtake{favorites.length === 1 ? "" : "s"}
           </span>
         </div>
         {favorites.length === 0 ? (
@@ -79,16 +79,16 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 className="section-pixel-title pixel-text">Results</h2>
           <span className="view-all-link">
-            {results.length} Grail{results.length === 1 ? "" : "s"}
+            {results.length} Outtake{results.length === 1 ? "" : "s"}
           </span>
         </div>
         {results.length === 0 ? (
           <div className="vault-empty">
             <Heart size={24} strokeWidth={1.75} />
-            No unreleased grails found matching your criteria.
+            No unreleased outtakes found matching your criteria.
             <div style={{ marginTop: 12 }}>
               <Link href="/submit" className="back-to-home-btn" style={{ marginBottom: 0 }}>
-                Found it elsewhere? Submit this grail
+                Found it elsewhere? Submit this outtake
               </Link>
             </div>
           </div>
@@ -129,13 +129,13 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
               </button>
               <button
                 className="hero-ghost-btn"
-                title="Play a random grail from the vault"
+                title="Play a random outtake from the vault"
                 onClick={() =>
                   player.playQueue(songs, Math.floor(Math.random() * songs.length), "home")
                 }
               >
                 <Shuffle size={15} strokeWidth={1.75} />
-                <span>Shuffle a grail</span>
+                <span>Shuffle an outtake</span>
               </button>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
           {picks.map((s, idx) => (
             <button key={s.songId} className="quick-pick-card" onClick={() => player.playQueue(songs, idx, "home")}>
               <div className="quick-pick-thumb">
-                <VaultCover id={s.songId} title={s.title} artist={s.artistName} durationSec={s.durationSec} variant="mini" />
+                <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="quick-pick-title" title={s.title}>
@@ -191,14 +191,14 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
 
       <div style={{ marginTop: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h2 className="section-pixel-title pixel-text">Trending Grails</h2>
+          <h2 className="section-pixel-title pixel-text">Trending Outtakes</h2>
           <span className="view-all-link">Top Unreleased Outtakes</span>
         </div>
         <div className="cards-grid">
           {trending.map((s, i) => (
             <button key={s.songId} className="card-item-featured" onClick={() => player.playQueue(songs, i + 1, "home")}>
               <div className="card-cover-wrap">
-                <VaultCover id={s.songId} title={s.title} artist={s.artistName} durationSec={s.durationSec} variant="label" />
+                <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
               </div>
               <div className="card-footer-row">
                 <div className="card-meta">

@@ -1,4 +1,4 @@
-/** "Found a grail?" submission form in the vault pill language. */
+/** "Found an outtake?" submission form in the vault pill language. */
 "use client";
 
 import { useState } from "react";
@@ -49,9 +49,9 @@ export default function SubmitForm() {
   return (
     <form className="vault-form" onSubmit={submit}>
       <div className="vault-field">
-        <label htmlFor="grail-url">YouTube link</label>
+        <label htmlFor="outtake-url">YouTube link</label>
         <input
-          id="grail-url"
+          id="outtake-url"
           className="vault-input"
           placeholder="https://youtube.com/watch?v=…"
           autoComplete="off"
@@ -61,9 +61,9 @@ export default function SubmitForm() {
         />
       </div>
       <div className="vault-field">
-        <label htmlFor="grail-artist">Artist (optional)</label>
+        <label htmlFor="outtake-artist">Artist (optional)</label>
         <input
-          id="grail-artist"
+          id="outtake-artist"
           className="vault-input"
           placeholder="Who's vault is this from?"
           autoComplete="off"
@@ -72,9 +72,9 @@ export default function SubmitForm() {
         />
       </div>
       <div className="vault-field">
-        <label htmlFor="grail-title">Title (optional)</label>
+        <label htmlFor="outtake-title">Title (optional)</label>
         <input
-          id="grail-title"
+          id="outtake-title"
           className="vault-input"
           placeholder="What should we call it?"
           autoComplete="off"
@@ -83,9 +83,9 @@ export default function SubmitForm() {
         />
       </div>
       <div className="vault-field">
-        <label htmlFor="grail-note">Note (optional)</label>
+        <label htmlFor="outtake-note">Note (optional)</label>
         <textarea
-          id="grail-note"
+          id="outtake-note"
           className="vault-textarea"
           placeholder="Era, leak story, alternate takes…"
           value={note}

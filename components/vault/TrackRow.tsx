@@ -51,13 +51,7 @@ export default function TrackRow({ song, pos, queue, queueKey }: TrackRowProps) 
       </span>
       <div className="row-left-info" style={{ flex: 1, minWidth: 0 }}>
         <div className="row-thumb">
-          <VaultCover
-            id={song.songId}
-            title={song.title}
-            artist={song.artistName}
-            durationSec={song.durationSec}
-            variant="mini"
-          />
+          <VaultCover id={song.songId} title={song.title} artistSlug={song.artistSlug} artistName={song.artistName} />
         </div>
         <div className="row-details">
           <div className="row-title" title={song.title}>

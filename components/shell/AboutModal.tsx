@@ -47,11 +47,12 @@ export default function AboutModal() {
           unreleased gems — every track machine-verified as playable before it ships.
         </p>
         <p className="modal-body">
-          Verified archive · {counts}. We never host audio — we link to YouTube.
+          Verified archive · {counts}. We never host audio — we link to YouTube. Artist
+          portraits via Wikimedia Commons contributors.
         </p>
         <div className="modal-link-row">
           <Link href="/submit" className="modal-pill-link" onClick={() => player.setAboutOpen(false)}>
-            Found a grail? Submit it
+            Found an outtake? Submit it
           </Link>
         </div>
       </div>

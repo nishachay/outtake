@@ -67,7 +67,7 @@ export default function LeftRail() {
 
       <div
         className="nav-search-box"
-        data-tooltip="Search Grails"
+        data-tooltip="Search Outtakes"
         onClick={() => {
           if (collapsed) player.setRailCollapsed(false);
         }}
@@ -77,11 +77,11 @@ export default function LeftRail() {
           <input
             type="text"
             className="nav-search-input"
-            placeholder="Search grails..."
+            placeholder="Search outtakes..."
             autoComplete="off"
             value={player.searchQuery}
             onChange={(e) => player.setSearchQuery(e.target.value)}
-            aria-label="Search grails"
+            aria-label="Search outtakes"
           />
         )}
       </div>
@@ -129,11 +129,11 @@ export default function LeftRail() {
 
         <div className="nav-divider" />
 
-        <div className="nav-user-card" data-tooltip="Nishachay Shelke (Vault Curator)">
+        <div className="nav-user-card" data-tooltip="Nishachay Shelke (Curator)">
           <div className="nav-user-avatar">NS</div>
           <div className="nav-user-meta">
             <div className="nav-user-name">Nishachay Shelke</div>
-            <div className="nav-user-role">Vault Curator</div>
+            <div className="nav-user-role">Curator</div>
           </div>
         </div>
       </div>

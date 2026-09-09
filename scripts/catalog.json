@@ -18,61 +18,71 @@
       "slug": "kanye-west",
       "name": "Kanye West",
       "initials": "KW",
-      "tag": "Vault Leaks & Good Ass Job"
+      "tag": "Vault Leaks & Good Ass Job",
+      "avatarUrl": "/assets/artists/kanye-west.jpg"
     },
     {
       "slug": "travis-scott",
       "name": "Travis Scott",
       "initials": "TS",
-      "tag": "OG Versions & Unreleased Leaks"
+      "tag": "OG Versions & Unreleased Leaks",
+      "avatarUrl": "/assets/artists/travis-scott.jpg"
     },
     {
       "slug": "drake",
       "name": "Drake",
       "initials": "DR",
-      "tag": "Reference Tracks & Leaks"
+      "tag": "Reference Tracks & Leaks",
+      "avatarUrl": "/assets/artists/drake.jpg"
     },
     {
       "slug": "justin-bieber",
       "name": "Justin Bieber",
       "initials": "JB",
-      "tag": "Era Demos & Unreleased"
+      "tag": "Era Demos & Unreleased",
+      "avatarUrl": "/assets/artists/justin-bieber.jpg"
     },
     {
       "slug": "post-malone",
       "name": "Post Malone",
       "initials": "PM",
-      "tag": "Unreleased & Vault Demos"
+      "tag": "Unreleased & Vault Demos",
+      "avatarUrl": "/assets/artists/post-malone.jpg"
     },
     {
       "slug": "xxxtentacion",
       "name": "XXXTentacion",
       "initials": "XX",
-      "tag": "Voice Memos & Demos"
+      "tag": "Voice Memos & Demos",
+      "avatarUrl": "/assets/artists/xxxtentacion.jpg"
     },
     {
       "slug": "lil-uzi-vert",
       "name": "Lil Uzi Vert",
       "initials": "UV",
-      "tag": "Unreleased"
+      "tag": "Unreleased",
+      "avatarUrl": "/assets/artists/lil-uzi-vert.jpg"
     },
     {
       "slug": "ariana-grande",
       "name": "Ariana Grande",
       "initials": "AG",
-      "tag": "Era Demos"
+      "tag": "Era Demos",
+      "avatarUrl": "/assets/artists/ariana-grande.jpg"
     },
     {
       "slug": "juice-wrld",
       "name": "Juice WRLD",
       "initials": "JW",
-      "tag": "Unreleased"
+      "tag": "Unreleased",
+      "avatarUrl": "/assets/artists/juice-wrld.jpg"
     },
     {
       "slug": "billie-eilish",
       "name": "Billie Eilish",
       "initials": "BE",
-      "tag": "Unreleased Snippets"
+      "tag": "Unreleased Snippets",
+      "avatarUrl": "/assets/artists/billie-eilish.jpg"
     }
   ],
   "songs": [

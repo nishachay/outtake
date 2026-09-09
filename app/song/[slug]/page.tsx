@@ -69,13 +69,7 @@ export default async function SongPage({ params }: { params: Promise<{ slug: str
 
         <div className="detail-grid">
           <div className="detail-cover">
-            <VaultCover
-              id={song.songId}
-              title={song.title}
-              artist={song.artistName}
-              durationSec={song.durationSec}
-              variant="label"
-            />
+            <VaultCover id={song.songId} title={song.title} artistSlug={song.artistSlug} artistName={song.artistName} />
           </div>
           <div>
             <h1 className="detail-title pixel-text">{song.title}</h1>

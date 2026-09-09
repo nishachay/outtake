@@ -4,8 +4,8 @@ import { ArrowLeft } from "lucide-react";
 import SubmitForm from "@/components/vault/SubmitForm";
 
 export const metadata: Metadata = {
-  title: "Submit a grail",
-  description: "Found an unreleased grail? Submit the link — the vault probes it before it ships.",
+  title: "Submit an outtake",
+  description: "Found an unreleased outtake? Submit the link — the vault probes it before it ships.",
 };
 
 export default function SubmitPage() {
@@ -16,7 +16,7 @@ export default function SubmitPage() {
         <span>Back to the vault</span>
       </Link>
       <h1 className="section-pixel-title pixel-text" style={{ fontSize: 24 }}>
-        Found a grail?
+        Found an outtake?
       </h1>
       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 6, marginBottom: 16, maxWidth: 560 }}>
         Drop the YouTube link below. The vault probes every submission — only currently-playable

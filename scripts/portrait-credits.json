@@ -1,0 +1,63 @@
+{
+  "_note": "Artist portrait provenance. All portraits are freely-licensed Wikimedia Commons files, downloaded and self-hosted under public/assets/artists/ (resized, JPEG). See each file page for full author/license history.",
+  "kanye-west": {
+    "file": "Kanye West at the 2009 Tribeca Film Festival (crop 2).jpg",
+    "author": "David Shankbone",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Kanye_West_at_the_2009_Tribeca_Film_Festival_(crop_2).jpg"
+  },
+  "travis-scott": {
+    "file": "Travis Scott The DAMN. Tour (cropped).jpg",
+    "author": "Kenny Sun from Boston",
+    "license": "CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Travis_Scott_The_DAMN._Tour_(cropped).jpg"
+  },
+  "drake": {
+    "file": "Drake at The Carter Effect 2017 (36818935200) (cropped).jpg",
+    "author": "GabboT",
+    "license": "CC BY-SA 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Drake_at_The_Carter_Effect_2017_(36818935200)_(cropped).jpg"
+  },
+  "justin-bieber": {
+    "file": "P20260719DT-1213 President Donald J. Trump and First Lady Melania Trump attend the FIFA World Cup Final (cropped 2).jpg",
+    "author": "Daniel Torok (Executive Office of the President)",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:P20260719DT-1213_President_Donald_J._Trump_and_First_Lady_Melania_Trump_attend_the_FIFA_World_Cup_Final_(cropped_2).jpg"
+  },
+  "post-malone": {
+    "file": "Post Malone July 2021 (cropped).jpg",
+    "author": "Chrisallmeid",
+    "license": "CC BY-SA 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Post_Malone_July_2021_(cropped).jpg"
+  },
+  "xxxtentacion": {
+    "file": "Xxxtentacion b-w.jpg",
+    "author": "Florida Dept. of Corrections (via Wikimedia Commons)",
+    "license": "Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Xxxtentacion_b-w.jpg"
+  },
+  "lil-uzi-vert": {
+    "file": "Lil Uzi Vert (2018).png",
+    "author": "Icebox",
+    "license": "CC BY 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Lil_Uzi_Vert_(2018).png"
+  },
+  "ariana-grande": {
+    "file": "Ariana Grande promoting Wicked (2024).jpg",
+    "author": "Barbie Simons",
+    "license": "CC BY 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Ariana_Grande_promoting_Wicked_(2024).jpg"
+  },
+  "juice-wrld": {
+    "file": "Juice WRLD - Les Ardentes 2019 (cropped 2).jpg",
+    "author": "Lexiou WesCudi",
+    "license": "CC BY-SA 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Juice_WRLD_-_Les_Ardentes_2019_(cropped_2).jpg"
+  },
+  "billie-eilish": {
+    "file": "BillieEilishO2140725-39 - 54665577407 (cropped).jpg",
+    "author": "Raph_PH",
+    "license": "CC BY 4.0",
+    "url": "https://commons.wikimedia.org/wiki/File:BillieEilishO2140725-39_-_54665577407_(cropped).jpg"
+  }
+}

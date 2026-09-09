@@ -105,8 +105,6 @@ export default function Turntable({ core }: { core: string }) {
           <circle cx="0" cy="0" r="24" fill={core} stroke="rgba(255,255,255,0.40)" strokeWidth="1" />
           <circle cx="0" cy="0" r="43" fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="1" />
 
-          <text x="0" y="-8" fontFamily="'Space Grotesk', sans-serif" fontSize="8.5" fontWeight="800" fill="#f4f2ea" textAnchor="middle" letterSpacing="0.5">33⅓ RPM</text>
-
           {/* Center Spindle Pin (Dead Center 0 0) */}
           <circle cx="0" cy="0" r="5" fill="url(#screwGrad)" stroke="#111827" strokeWidth="1" />
           <circle cx="0" cy="0" r="2" fill="#111827" />

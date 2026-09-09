@@ -170,31 +170,45 @@
   --radius-full: 9999px;
 }
 
-/* LIGHT MODE — colors only, zero element changes */
+/* LIGHT MODE — warm paper, not inverted dark. Same layout, softer surfaces. */
 [data-theme="light"] {
-  --bg-canvas: #e2e5ea;
-  --surface-card: #ffffff;
-  --surface-card-hover: #f8fafc;
-  --border-card: rgba(0, 0, 0, 0.08);
-  --border-card-hover: rgba(0, 0, 0, 0.16);
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --icon-color: #0f172a;
-  --icon-muted: #64748b;
-  --pill-bg: rgba(0, 0, 0, 0.05);
-  --pill-border: rgba(0, 0, 0, 0.12);
-  --pill-active-bg: #0f172a;
-  --pill-active-text: #ffffff;
-  --nav-active-bg: rgba(15, 23, 42, 0.08);
-  --nav-active-text: #0f172a;
-  --track-bg: rgba(0, 0, 0, 0.12);
-  --track-fill: #0f172a;
-  --play-btn-bg: #0f172a;
-  --play-btn-text: #ffffff;
-  --circle-btn-border: #0f172a;
-  --tooltip-bg: #0f172a;
-  --modal-bg: #ffffff;
+  --bg-canvas: #e7e4dc;
+  --surface-card: #faf9f5;
+  --surface-card-hover: #f2f0e9;
+  --border-card: rgba(28, 26, 20, 0.09);
+  --border-card-hover: rgba(28, 26, 20, 0.18);
+  --text-primary: #191b1f;
+  --text-secondary: #5c6470;
+  --text-muted: #8d94a1;
+  --icon-color: #191b1f;
+  --icon-muted: #5c6470;
+  --pill-bg: rgba(28, 26, 20, 0.05);
+  --pill-border: rgba(28, 26, 20, 0.13);
+  --pill-active-bg: #191b1f;
+  --pill-active-text: #faf9f5;
+  --nav-active-bg: rgba(25, 27, 31, 0.08);
+  --nav-active-text: #191b1f;
+  --track-bg: rgba(25, 27, 31, 0.14);
+  --track-fill: #191b1f;
+  --play-btn-bg: #191b1f;
+  --play-btn-text: #faf9f5;
+  --circle-btn-border: #191b1f;
+  --tooltip-bg: #191b1f;
+  --modal-bg: #faf9f5;
+}
+
+/* Softer shadows on paper — the dark-mode depths look bruised in light. */
+[data-theme="light"] .left-nav-sidebar,
+[data-theme="light"] .main-stage,
+[data-theme="light"] .now-playing-card-container,
+[data-theme="light"] .artist-card-item,
+[data-theme="light"] .card-item-featured {
+  box-shadow: 0 12px 32px rgba(28, 26, 20, 0.1);
+}
+[data-theme="light"] .floating-now-playing,
+[data-theme="light"] .spotify-hero-banner,
+[data-theme="light"] .detail-cover {
+  box-shadow: 0 12px 32px rgba(28, 26, 20, 0.16);
 }
 
 #app ::-webkit-scrollbar {
@@ -1637,26 +1651,41 @@
   flex-shrink: 0;
 }
 
-/* ── OWNED VAULT-LABEL COVER ART (no scraped YouTube thumbnails) ── */
+/* ── GENERATIVE VAULT COVERS (seeded SVG, no text, no thumbnails) ──
+   VaultCover renders pure vector art inside this frame. */
 .v-cover {
   position: relative;
   overflow: hidden;
   width: 100%;
   height: 100%;
-  container-type: inline-size;
-  background: repeating-radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 2.6px),
-    radial-gradient(130% 140% at 50% 6%, #16191d 0%, #0d0f12 58%, #07080a 100%);
+  background: #0b0c0e;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.v-cover::before {
-  content: "";
+.v-cover svg,
+.v-cover img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.v-cover img {
+  object-fit: cover;
+}
+.vc-shade {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(120% 90% at 24% 0%, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 46%);
+  z-index: 1;
+}
+.vc-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  pointer-events: none;
+  z-index: 2;
 }
 .v-cover::after {
   content: "";
@@ -1664,141 +1693,6 @@
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), inset 0 0 0 1px rgba(14, 16, 20, 0.9);
-}
-.vc-accentbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  height: max(2px, 0.7cqw);
-  background: var(--coverAccent);
-}
-.vc-ring {
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  pointer-events: none;
-}
-.vc-initial {
-  font-family: var(--display-font);
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.94);
-  letter-spacing: -0.04em;
-  position: relative;
-  z-index: 1;
-  user-select: none;
-  line-height: 1;
-}
-
-/* Mini cover (track-list thumbs / quick picks): accent bar + glyph + one ring. */
-.v-cover--mini .vc-initial {
-  font-size: 40cqw;
-}
-.v-cover--mini .vc-ring {
-  width: 74%;
-  aspect-ratio: 1;
-  left: 13%;
-  top: 13%;
-}
-
-/* Full "pressing label" cover (featured / trend tiles): real label anatomy. */
-.v-cover--label {
-  padding: 9px 11px;
-  align-items: stretch;
-  justify-content: space-between;
-  flex-direction: column;
-  text-align: left;
-}
-.v-cover--label .vc-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  position: relative;
-  z-index: 1;
-}
-.vc-mark {
-  font-family: var(--display-font);
-  font-weight: 800;
-  font-size: 4.4cqw;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-}
-.vc-catno {
-  font-family: var(--body-font);
-  font-weight: 700;
-  font-size: 3cqw;
-  letter-spacing: 0.06em;
-  color: var(--coverAccent);
-}
-.v-cover--label .vc-disc {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-.v-cover--label .vc-r1 {
-  width: 84%;
-  aspect-ratio: 1;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-.v-cover--label .vc-r2 {
-  width: 58%;
-  aspect-ratio: 1;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-.v-cover--label .vc-mid {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  text-align: center;
-  min-height: 0;
-}
-.v-cover--label .vc-title {
-  font-family: var(--display-font);
-  font-weight: 800;
-  font-size: 12.5cqw;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  color: #fff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-  max-width: 96%;
-}
-.v-cover--label .vc-artist {
-  font-family: var(--body-font);
-  font-weight: 700;
-  font-size: 3.6cqw;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 94%;
-}
-.v-cover--label .vc-meta {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--body-font);
-  font-weight: 600;
-  font-size: 2.9cqw;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.4);
 }
 .row-details {
   min-width: 0;
