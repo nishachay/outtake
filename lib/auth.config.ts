@@ -9,12 +9,22 @@ export function adminLogins(): string[] {
     .filter(Boolean);
 }
 
+/** Fail closed in production: no dev fallback secret, no open allowlist. */
+function authSecret(): string {
+  const s = process.env.AUTH_SECRET;
+  if (s) return s;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET must be set in production");
+  }
+  return "outtake-local-dev-secret-change-me";
+}
+
 export const authConfig = {
   providers: [GitHub],
   session: { strategy: "jwt" },
   pages: { signIn: "/admin/login" },
   trustHost: true,
-  secret: process.env.AUTH_SECRET || "outtake-local-dev-secret-change-me",
+  secret: authSecret(),
   callbacks: {
     // Middleware gate: /admin/* requires an authenticated session (see middleware.ts).
     // The sign-in page itself must stay public, or logins redirect-loop forever.
@@ -25,9 +35,10 @@ export const authConfig = {
       return true;
     },
     // Restrict to the allowlist. Returning a URL redirects; returning false blocks sign-in.
+    // Empty allowlist = open door in dev, locked door in production.
     async signIn({ profile }) {
       const allowed = adminLogins();
-      if (allowed.length === 0) return true;
+      if (allowed.length === 0) return process.env.NODE_ENV !== "production";
       const login = (profile as { login?: string } | undefined)?.login;
       if (!login) return false;
       return allowed.includes(login);
