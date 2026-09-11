@@ -1,5 +1,5 @@
-/** Home discovery canvas: hero spotlight, quick picks, artists, trending outtakes.
- *  Also hosts search-results and favorites views driven by the rail. */
+/** Home discovery canvas: outtake of the day, artists, alternate takes,
+ *  deep archive. Also hosts search-results and favorites views from the rail. */
 "use client";
 
 import { useEffect, useMemo } from "react";
@@ -24,9 +24,60 @@ export interface HomeArtist {
 interface HomeClientProps {
   songs: DeckSong[];
   artists: HomeArtist[];
+  hero: DeckSong | null;
+  heroIndex: number;
+  altTakes: DeckSong[];
+  deepCuts: DeckSong[];
 }
 
-export default function HomeClient({ songs, artists }: HomeClientProps) {
+function RailCards({ title, note, tracks, songs }: {
+  title: string;
+  note: string;
+  tracks: DeckSong[];
+  songs: DeckSong[];
+}) {
+  const player = usePlayer();
+  if (!tracks.length) return null;
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h2 className="section-pixel-title pixel-text">{title}</h2>
+        <span className="view-all-link">{note}</span>
+      </div>
+      <div className="cards-grid">
+        {tracks.map((s) => {
+          const idx = songs.findIndex((t) => t.songId === s.songId);
+          return (
+            <button
+              key={s.songId}
+              className="card-item-featured"
+              onClick={() => player.playQueue(songs, idx >= 0 ? idx : 0, "home")}
+            >
+              <div className="card-cover-wrap">
+                <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
+              </div>
+              <div className="card-footer-row">
+                <div className="card-meta">
+                  <div className="card-title" title={s.title}>
+                    {s.title}
+                  </div>
+                  <div className="card-artist">{s.artistName}</div>
+                </div>
+                <div className="card-controls-cluster">
+                  <span className="card-ctrl-btn play" title="Play Track">
+                    <Play size={14} strokeWidth={1.75} fill="currentColor" style={{ marginLeft: 1 }} />
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function HomeClient({ songs, artists, hero, heroIndex, altTakes, deepCuts }: HomeClientProps) {
   const player = usePlayer();
   const query = player.searchQuery.trim().toLowerCase();
 
@@ -103,10 +154,6 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
     );
   }
 
-  const hero = songs[0];
-  const picks = songs.slice(0, 6);
-  const trending = [songs[1], songs[2], songs[3]].filter(Boolean);
-
   return (
     <>
       {hero && (
@@ -115,7 +162,7 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
             {vaultInitial(hero.title)}
           </span>
           <div className="hero-content">
-            <div className="hero-tag">Featured Vault Outtake</div>
+            <div className="hero-tag">Outtake of the day</div>
             <h1 className="hero-title pixel-text" title={hero.title}>
               {hero.title}
             </h1>
@@ -123,13 +170,16 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
               {hero.artistName} · Unreleased Studio Session
             </p>
             <div className="hero-actions">
-              <button className="hero-play-btn" onClick={() => player.playQueue(songs, 0, "home")}>
+              <button
+                className="hero-play-btn"
+                onClick={() => player.playQueue(songs, heroIndex >= 0 ? heroIndex : 0, "home")}
+              >
                 <Play size={16} strokeWidth={1.75} fill="currentColor" />
                 <span>Listen Outtake</span>
               </button>
               <button
                 className="hero-ghost-btn"
-                title="Play a random outtake from the vault"
+                title="Play a random outtake from the archive"
                 onClick={() =>
                   player.playQueue(songs, Math.floor(Math.random() * songs.length), "home")
                 }
@@ -146,30 +196,9 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
         </div>
       )}
 
-      <div style={{ marginTop: 24 }}>
-        <h2 className="section-pixel-title pixel-text" style={{ marginBottom: 12 }}>
-          Quick Picks
-        </h2>
-        <div className="quick-picks-grid">
-          {picks.map((s, idx) => (
-            <button key={s.songId} className="quick-pick-card" onClick={() => player.playQueue(songs, idx, "home")}>
-              <div className="quick-pick-thumb">
-                <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="quick-pick-title" title={s.title}>
-                  {s.title}
-                </div>
-                <div className="quick-pick-artist">{s.artistName}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div style={{ marginTop: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h2 className="section-pixel-title pixel-text">Featured Vault Artists</h2>
+          <h2 className="section-pixel-title pixel-text">Featured Archive Artists</h2>
           <span className="view-all-link">
             {artists.length} Artist{artists.length === 1 ? "" : "s"}
           </span>
@@ -189,34 +218,8 @@ export default function HomeClient({ songs, artists }: HomeClientProps) {
         </div>
       </div>
 
-      <div style={{ marginTop: 28 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h2 className="section-pixel-title pixel-text">Trending Outtakes</h2>
-          <span className="view-all-link">Top Unreleased Outtakes</span>
-        </div>
-        <div className="cards-grid">
-          {trending.map((s, i) => (
-            <button key={s.songId} className="card-item-featured" onClick={() => player.playQueue(songs, i + 1, "home")}>
-              <div className="card-cover-wrap">
-                <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
-              </div>
-              <div className="card-footer-row">
-                <div className="card-meta">
-                  <div className="card-title" title={s.title}>
-                    {s.title}
-                  </div>
-                  <div className="card-artist">{s.artistName}</div>
-                </div>
-                <div className="card-controls-cluster">
-                  <span className="card-ctrl-btn play" title="Play Track">
-                    <Play size={14} strokeWidth={1.75} fill="currentColor" style={{ marginLeft: 1 }} />
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
+      <RailCards title="Alternate Takes" note="Songs with V2s" tracks={altTakes} songs={songs} />
+      <RailCards title="Deep Archive" note="Rotates weekly" tracks={deepCuts} songs={songs} />
     </>
   );
 }

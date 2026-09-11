@@ -70,22 +70,6 @@ export const songVersions = pgTable(
   ],
 );
 
-export const reports = pgTable(
-  "reports",
-  {
-    id: text("id").primaryKey(),
-    songId: text("song_id")
-      .notNull()
-      .references(() => songs.id, { onDelete: "cascade" }),
-    versionId: text("version_id").references(() => songVersions.id, {
-      onDelete: "set null",
-    }),
-    reason: text("reason"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("reports_song_idx").on(t.songId)],
-);
-
 export const pendingSubmissions = pgTable(
   "pending_submissions",
   {
@@ -108,7 +92,6 @@ export type Song = typeof songs.$inferSelect;
 export type NewSong = typeof songs.$inferInsert;
 export type SongVersion = typeof songVersions.$inferSelect;
 export type NewSongVersion = typeof songVersions.$inferInsert;
-export type Report = typeof reports.$inferSelect;
 export type PendingSubmission = typeof pendingSubmissions.$inferSelect;
 export type NewPendingSubmission = typeof pendingSubmissions.$inferInsert;
 
@@ -124,22 +107,10 @@ export const songsRelations = relations(songs, ({ one, many }) => ({
   versions: many(songVersions),
 }));
 
-export const songVersionsRelations = relations(songVersions, ({ one, many }) => ({
+export const songVersionsRelations = relations(songVersions, ({ one }) => ({
   song: one(songs, {
     fields: [songVersions.songId],
     references: [songs.id],
-  }),
-  reports: many(reports),
-}));
-
-export const reportsRelations = relations(reports, ({ one }) => ({
-  song: one(songs, {
-    fields: [reports.songId],
-    references: [songs.id],
-  }),
-  version: one(songVersions, {
-    fields: [reports.versionId],
-    references: [songVersions.id],
   }),
 }));
 
@@ -150,9 +121,6 @@ export type SongStatus = (typeof SONG_STATUSES)[number];
 
 export const PENDING_STATUSES = ["pending", "verifying", "ready", "rejected", "shipped"] as const;
 export type PendingStatus = (typeof PENDING_STATUSES)[number];
-
-/** Listener reports after which a canonical song (or version) is flagged dead. */
-export const REPORT_THRESHOLD = 3;
 
 /** Version id derivation, matches the legacy `songId__v{n}` (1-based) convention. */
 export function versionIdOf(songId: string, n: number): string {

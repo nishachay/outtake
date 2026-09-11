@@ -1,6 +1,6 @@
-/** Vault player engine — hidden YouTube iframe audio with the original
- *  vault UX: queue, V1/V2 version picker memory, scrub bar, likes,
- *  keyboard shortcuts, report-with-local-queue, auto-fallback. */
+/** Vault player engine — hidden YouTube iframe audio with the vault UX:
+ *  queue, V1/V2 version picker memory, scrub bar, likes, repeat-one,
+ *  keyboard shortcuts, auto-fallback. */
 "use client";
 
 import React, {
@@ -24,10 +24,7 @@ declare global {
 
 const LIKES_KEY = "m2d_likes_v1";
 const VERSION_KEY = "m2d_version_pref_v1";
-const REPORT_KEY = "m2d_reports_v1";
 const LAST_KEY = "m2d_last_song_v1";
-
-export type ReportState = "idle" | "sending" | "sent" | "queued";
 
 interface PlayerContextValue {
   queue: DeckSong[];
@@ -46,7 +43,6 @@ interface PlayerContextValue {
   favoritesOnly: boolean;
   shuffle: boolean;
   repeat: boolean;
-  reportState: ReportState;
   likedCount: number;
   lastSong: DeckSong | null;
   resumeLast: () => void;
@@ -68,7 +64,6 @@ interface PlayerContextValue {
   toggleRepeat: () => void;
   isLiked: (id: string) => boolean;
   toggleLike: (id: string) => void;
-  sendReport: () => void;
   /** Pause progress polling while the scrub bar is dragged. */
   setScrubbing: (v: boolean) => void;
 }
@@ -106,7 +101,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
-  const [reportState, setReportState] = useState<ReportState>("idle");
   const [likedIds, setLikedIds] = useState<string[]>(() =>
     typeof window === "undefined" ? [] : readJson<string[]>(LIKES_KEY, []),
   );
@@ -124,8 +118,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const scrubbingRef = useRef(false);
 
   // Ref mirror for use inside YT event callbacks (avoids stale closures).
-  const live = useRef({ queue: queue, index: index, srcKey: srcKey, shuffle: shuffle });
-  live.current = { queue, index, srcKey, shuffle };
+  const live = useRef({ queue: queue, index: index, srcKey: srcKey, shuffle: shuffle, repeat: repeat });
+  live.current = { queue, index, srcKey, shuffle, repeat };
 
   const song: DeckSong | null = index >= 0 && index < queue.length ? queue[index] : null;
   const source: VersionSource | null =
@@ -181,7 +175,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         }
         return nextPrefs;
       });
-      setReportState("idle");
       setCur(0);
       setTot(s.durationSec ?? 0);
       setPlaying(true);
@@ -208,7 +201,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     } else {
       setIndex(-1);
       setSrcKey("canonical");
-      setReportState("idle");
       setCur(0);
       setTot(0);
     }
@@ -267,7 +259,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const src = s.sources.find((x) => x.key === key);
       if (!src) return;
       setSrcKey(key);
-      setReportState("idle");
       setVersionPrefs((prev) => {
         const nextPrefs = { ...prev, [s.songId]: key };
         try {
@@ -302,39 +293,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const sendReport = useCallback(() => {
-    const s = song;
-    if (!s || reportState === "sending") return;
-    const src = s.sources.find((x) => x.key === srcKey);
-    const payload = {
-      songId: s.songId,
-      reason: "reported by listener",
-      versionId: src && src.key !== "canonical" ? src.key : undefined,
-    };
-    setReportState("sending");
-    const queueLocal = () => {
-      try {
-        const queued = readJson<Array<Record<string, unknown>>>(REPORT_KEY, []);
-        queued.push({ ...payload, at: Date.now() });
-        localStorage.setItem(REPORT_KEY, JSON.stringify(queued.slice(-200)));
-      } catch {
-        /* ignore storage errors */
-      }
-      setReportState("queued");
-    };
-    fetch("/api/report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && (data as { ok?: boolean }).ok) setReportState("sent");
-        else queueLocal();
-      })
-      .catch(queueLocal);
-  }, [song, srcKey, reportState]);
-
   // ── YouTube IFrame API boot ──
   useEffect(() => {
     let cancelled = false;
@@ -350,8 +308,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlaying(false);
       } else if (ev.data === S.ENDED) {
         setPlaying(false);
-        const { queue: q, index: i, shuffle: sh } = live.current;
+        const { queue: q, index: i, shuffle: sh, repeat: rp } = live.current;
         if (!q.length) return;
+        if (rp) {
+          // Honest repeat-one: replay the same track from the top.
+          const s = q[i];
+          if (!s) return;
+          setCur(0);
+          setPlaying(true);
+          const src = s.sources.find((x) => x.key === live.current.srcKey) ?? s.sources[0];
+          const p = ytRef.current;
+          if (src && p) {
+            try {
+              p.seekTo(0, true);
+              p.playVideo();
+            } catch {
+              /* ignore */
+            }
+          }
+          return;
+        }
         const ni = sh ? Math.floor(Math.random() * q.length) : (i + 1) % q.length;
         const s = q[ni];
         if (!s) return;
@@ -362,7 +338,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             : (s.sources[0]?.key ?? "canonical");
         setIndex(ni);
         setSrcKey(key);
-        setReportState("idle");
         setCur(0);
         setTot(s.durationSec ?? 0);
         const src = s.sources.find((x) => x.key === key) ?? s.sources[0];
@@ -405,7 +380,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           if (!ns) return;
           setIndex(ni);
           setSrcKey(ns.sources[0]?.key ?? "canonical");
-          setReportState("idle");
           setCur(0);
           setTot(ns.durationSec ?? 0);
           const p = ytRef.current;
@@ -572,9 +546,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const songTitle = song?.title;
   useEffect(() => {
     if (songTitle) {
-      document.title = `${playing ? "▶ " : ""}${songTitle} — OUTTAKE`;
+      document.title = `${playing ? "▶ " : ""}${songTitle} — Outtake`;
     } else {
-      document.title = "{ OUTTAKE } — Unreleased Music Vault";
+      document.title = "[ OUTTAKE ] — Unreleased Music Archive";
     }
   }, [songTitle, playing]);
 
@@ -595,7 +569,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     favoritesOnly,
     shuffle,
     repeat,
-    reportState,
     likedCount: likedIds.length,
     lastSong,
     resumeLast,
@@ -617,7 +590,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     toggleRepeat,
     isLiked,
     toggleLike,
-    sendReport,
     setScrubbing,
   };
 

@@ -12,7 +12,7 @@ import TrackRow from "./TrackRow";
 type SortMode = "vault" | "az" | "longest" | "shortest";
 
 const SORTS: Array<{ key: SortMode; label: string }> = [
-  { key: "vault", label: "Vault order" },
+  { key: "vault", label: "Archive order" },
   { key: "az", label: "A–Z" },
   { key: "longest", label: "Longest" },
   { key: "shortest", label: "Shortest" },

@@ -58,7 +58,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
           <div className="artist-hero-meta">
             <h1 className="artist-hero-name pixel-text">{artist.name}</h1>
             <div className="artist-hero-sub">
-              {artist.tag ?? "Unreleased Vault & Studio Outtakes"}
+              {artist.tag ?? "Unreleased Studio Outtakes"}
             </div>
             <div className="artist-hero-badge">{songs.length} Unreleased Outtakes</div>
           </div>

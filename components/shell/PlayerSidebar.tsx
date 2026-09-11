@@ -1,9 +1,8 @@
-/** Now-playing deck: turntable, title/like/report, versions, scrubber, controls. */
+/** Now-playing deck: turntable, title/like, versions, scrubber, controls. */
 "use client";
 
 import { useRef } from "react";
 import {
-  Check,
   Disc3,
   Heart,
   Pause,
@@ -12,7 +11,6 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  TriangleAlert,
   X,
 } from "lucide-react";
 import { usePlayer } from "./player-context";
@@ -38,15 +36,6 @@ export default function PlayerSidebar() {
     const p = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     player.seek(p);
   };
-
-  const reportLabel =
-    player.reportState === "sent"
-      ? "Report logged — the vault will re-verify this link."
-      : player.reportState === "queued"
-        ? "Report saved — will sync when the vault is reachable."
-        : player.reportState === "sending"
-          ? "Flagging…"
-          : null;
 
   return (
     <aside className={`now-playing-sidebar${player.sidebarOpen ? " open" : " collapsed"}`}>
@@ -109,28 +98,14 @@ export default function PlayerSidebar() {
                     />
                     <span>{liked ? "Liked" : "Like"}</span>
                   </button>
-                  <button
-                    className={`deck-report-btn${player.reportState === "sent" || player.reportState === "queued" ? " reported" : ""}`}
-                    title="Report Broken / Dead Video"
-                    onClick={player.sendReport}
-                    disabled={!song || player.reportState === "sending"}
-                    aria-label="Report broken video"
-                  >
-                    {player.reportState === "sent" || player.reportState === "queued" ? (
-                      <Check size={14} strokeWidth={STROKE} />
-                    ) : (
-                      <TriangleAlert size={14} strokeWidth={STROKE} />
-                    )}
-                  </button>
                 </div>
               </div>
-              {reportLabel && <div className="deck-report-note">{reportLabel}</div>}
             </>
           ) : (
             <>
               <div className="deck-title-block">
                 <h1 className="deck-title-text pixel-text">The deck is quiet</h1>
-                <div className="deck-artist-sub">Pick an outtake from the vault to start</div>
+                <div className="deck-artist-sub">Pick an outtake to start</div>
               </div>
               {player.lastSong && (
                 <div style={{ marginTop: 12 }}>

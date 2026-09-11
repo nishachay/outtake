@@ -1,13 +1,13 @@
 # AGENTS.md
 
-`{ OUTTAKE }` — "unreleased music vault". A **verified archive of unreleased music**: only YouTube videos that are currently playable. Trust is the product — never ship a track that has not passed verification. We never host audio/video; we only link to YouTube.
+`[ OUTTAKE ]` — "unreleased music archive". A **verified archive of unreleased music**: only YouTube videos that are currently playable. Trust is the product — never ship a track that has not passed verification. We never host audio/video; we only link to YouTube.
 
-The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth outtakes, 50 The Weeknd vault tracks, 141 tracks across 10 more artists — every id oEmbed-verified; roster lives in `scripts/catalog.json`). The frontend is **Next.js 15 (App Router) + TypeScript + Tailwind**; the backend is a **single catch-all serverless API** backed by **Neon Postgres + Drizzle** (admin only) with a **static catalog fallback** for the public site.
+The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth outtakes, 50 The Weeknd outtakes, 141 tracks across 10 more artists — every id oEmbed-verified; roster lives in `scripts/catalog.json`). The frontend is **Next.js 15 (App Router) + TypeScript + Tailwind**; the backend is a **single catch-all serverless API** backed by **Neon Postgres + Drizzle** (admin only) with a **static catalog fallback** for the public site.
 
 ## Run & verify
 
 - Dev: `npm run dev` → http://localhost:3000 (Turbopack).
-- Build: `npm run build` (typecheck + prerender all 288 songs / 12 artists). No lint gate (eslint ignoreDuringBuilds); rely on `npx tsc --noEmit` + `npm run build`.
+- Build: `npm run build` (typecheck + prerender all 288 songs / 12 artists). Needs any `AUTH_SECRET` value in the environment (`AUTH_SECRET=x npm run build`) — the auth module refuses to initialize in production without one. No lint gate (eslint ignoreDuringBuilds); rely on `npx tsc --noEmit` + `npm run build`.
 - API smoke (no DB): `npm run build && npm start`, then `curl :3000/api/health` → `{"mode":"static-fallback", tracks: 304}`. Admin endpoints 401 without a bearer `ADMIN_KEY`, and 503 "database unavailable" when `DATABASE_URL` is unset.
 - npm on this Windows-drvfs box is slow: install with `--no-audit --no-fund --cache=/home/nishachay/.npm-linux-cache` and long timeouts. `next build` takes ~10 min locally (drvfs + low RAM); when a stale `next-server` is running it can serve old routes — always kill all node/next PIDs before `next build`/`next start`.
 
@@ -30,8 +30,8 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 
 ## Components & design
 
-- `components/shell/` — persistent vault canvas: `AppShell` (rail + stage + deck), `PlayerSidebar` (turntable deck), `LeftRail`, `FloatingCapsule`, `AboutModal`, `Turntable` (SVG deck, no text), `player-context.tsx` (YT-iframe engine: queue, versions, likes, seek, shortcuts, reports).
-- `components/vault/` — `VaultCover` (artist portrait under dark archival treatment + seeded crop/zoom/shade + accent bar; no text, never thumbnails), `TrackRow`, `HomeClient`/`ArtistClient`/`SongClient` (stage views), `SubmitForm`, `ArtistAvatar` (initials fallback). Brand is the `{ OUTTAKE }` wordmark only — no glyph.
+- `components/shell/` — persistent archive canvas: `AppShell` (rail + stage + deck), `PlayerSidebar` (turntable deck), `LeftRail`, `FloatingCapsule`, `AboutModal`, `Turntable` (SVG deck, no text), `player-context.tsx` (YT-iframe engine: queue, versions, likes, seek, shortcuts, repeat-one).
+- `components/vault/` — `VaultCover` (artist portrait under dark archival treatment + seeded crop/zoom/shade + accent bar; no text, never thumbnails), `TrackRow`, `HomeClient`/`ArtistClient`/`SongClient` (stage views), `SubmitForm`, `ArtistAvatar` (initials fallback). Brand is the `[ OUTTAKE ]` wordmark only — no glyph.
 - `components/admin/` — `ArtistsForm`, `SongsForm` (probe → approve flow), `PendingQueue`. Admin pages live under `app/admin/(vault)/` (auth-guarded layout); `app/admin/login/` stays outside the guard or logins redirect-loop.
 - Portraits: self-hosted face crops in `public/assets/artists/` (Wikimedia Commons leads, visually reviewed; provenance in `scripts/portrait-credits.json`, credited in About modal). Never hotlink social CDNs (expiring URLs).
 - Design tokens in `app/globals.css`: vault vars (`--bg-canvas`, `--pill-*`, monochrome + `#f43f5e`/`#f87171` red only); light mode is warm paper (`#e7e4dc` canvas), not inverted dark. Covers/hero/turntable stay dark in both themes. Copy rule: tracks are "outtakes", never "grails".

@@ -51,8 +51,8 @@ export default function LeftRail() {
     <aside className={`left-nav-sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="nav-brand-header">
         <Link href="/" className="nav-brand-logo" data-tooltip="Expand Sidebar" onClick={() => player.setFavoritesOnly(false)}>
-          <span className="logo-full">{"{ OUTTAKE }"}</span>
-          <span className="logo-compact">{"{ O }"}</span>
+          <span className="logo-full">{"[ OUTTAKE ]"}</span>
+          <span className="logo-compact">{"[ O ]"}</span>
         </Link>
         <button
           className="sidebar-collapse-btn"
@@ -126,16 +126,6 @@ export default function LeftRail() {
           )}
           <span>{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
         </button>
-
-        <div className="nav-divider" />
-
-        <div className="nav-user-card" data-tooltip="Nishachay Shelke (Curator)">
-          <div className="nav-user-avatar">NS</div>
-          <div className="nav-user-meta">
-            <div className="nav-user-name">Nishachay Shelke</div>
-            <div className="nav-user-role">Curator</div>
-          </div>
-        </div>
       </div>
     </aside>
   );

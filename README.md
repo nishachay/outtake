@@ -1,4 +1,4 @@
-# { OUTTAKE } — verified archive of unreleased music
+# [ OUTTAKE ] — verified archive of unreleased music
 
 Only YouTube videos that are currently playable. Trust is the product — every track passes machine verification before it ships, gets re-checked daily, and listeners can flag dead links. We never host audio or video; we link to YouTube.
 

@@ -11,14 +11,14 @@
       "slug": "the-weeknd",
       "name": "The Weeknd",
       "initials": "TW",
-      "tag": "Sessions & Vault Leaks",
+      "tag": "Sessions & Leaks",
       "avatarUrl": "/assets/artists/the-weeknd.jpg"
     },
     {
       "slug": "kanye-west",
       "name": "Kanye West",
       "initials": "KW",
-      "tag": "Vault Leaks & Good Ass Job",
+      "tag": "Leaks & Good Ass Job",
       "avatarUrl": "/assets/artists/kanye-west.jpg"
     },
     {
@@ -46,7 +46,7 @@
       "slug": "post-malone",
       "name": "Post Malone",
       "initials": "PM",
-      "tag": "Unreleased & Vault Demos",
+      "tag": "Unreleased & Studio Demos",
       "avatarUrl": "/assets/artists/post-malone.jpg"
     },
     {

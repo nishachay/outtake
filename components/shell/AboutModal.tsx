@@ -40,8 +40,8 @@ export default function AboutModal() {
         <button className="modal-close" onClick={() => player.setAboutOpen(false)} aria-label="Close about dialog">
           <X size={18} strokeWidth={1.75} />
         </button>
-        <h2 className="modal-title pixel-text">{"{ OUTTAKE }"}</h2>
-        <p className="modal-sub">Unreleased Music Vault &amp; 3D Vinyl Turntable Player</p>
+        <h2 className="modal-title pixel-text">{"[ OUTTAKE ]"}</h2>
+        <p className="modal-sub">Unreleased Music Archive &amp; 3D Vinyl Turntable Player</p>
         <p className="modal-body">
           A private listening archive featuring rare studio outtakes, leaks, acoustic demos, and
           unreleased gems — every track machine-verified as playable before it ships.

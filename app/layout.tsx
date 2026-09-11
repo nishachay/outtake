@@ -23,11 +23,11 @@ const body = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "{ OUTTAKE } — Unreleased Music Vault",
-    template: "%s — OUTTAKE",
+    default: "[ OUTTAKE ] — Unreleased Music Archive",
+    template: "%s — Outtake",
   },
   description:
-    "{ OUTTAKE } — Unreleased Music Vault & 3D Vinyl Turntable Player. Only currently-playable, machine-verified unreleased tracks.",
+    "[ OUTTAKE ] — Unreleased Music Archive & 3D Vinyl Turntable Player. Only currently-playable, machine-verified unreleased tracks.",
 };
 
 export const viewport: Viewport = {

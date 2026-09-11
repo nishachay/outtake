@@ -27,10 +27,10 @@ export async function generateMetadata({
   if (!canonical) return { title: "Track not found" };
   return {
     title: `${canonical.title} — ${canonical.artistName}`,
-    description: `Unreleased vault outtake by ${canonical.artistName} — machine-verified as playable.`,
+    description: `Unreleased outtake by ${canonical.artistName} — machine-verified as playable.`,
     openGraph: {
       title: `${canonical.title} — ${canonical.artistName}`,
-      description: `Unreleased vault outtake — machine-verified as playable.`,
+      description: `Unreleased outtake — machine-verified as playable.`,
       images: [`https://i.ytimg.com/vi/${canonical.youtubeId}/hqdefault.jpg`],
     },
   };
@@ -81,8 +81,8 @@ export default async function SongPage({ params }: { params: Promise<{ slug: str
             </p>
             <SongClient song={song} artistSongs={artistSongs} queueKey={queueKey} />
             <p className="detail-note">
-              Every vault cut is machine-verified as playable before it ships — and re-checked
-              daily. If this link ever dies, flag it from the deck and the vault re-verifies it.
+              Every outtake is machine-verified as playable before it ships — and re-checked
+              daily. Dead links are caught and re-verified automatically.
             </p>
             <p className="detail-source">
               Verified playable ·{" "}

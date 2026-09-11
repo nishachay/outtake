@@ -102,7 +102,7 @@ export async function POST(
     if (isAdminPath(key) && !c.admin) throw new ApiError(401, "unauthorized");
 
     if (key === "report") {
-      return api.handleReport(c, body as Parameters<typeof api.handleReport>[1]);
+      return api.handleReport();
     }
     if (key === "submit") {
       return api.handleSubmit(c, body as Parameters<typeof api.handleSubmit>[1]);

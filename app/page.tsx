@@ -1,5 +1,6 @@
 import { getCatalog } from "@/lib/dataloader";
 import { toDeckSongs } from "@/lib/vault";
+import { alternateTakes, deepArchive, outtakeOfTheDay } from "@/lib/feed";
 import HomeClient, { type HomeArtist } from "@/components/vault/HomeClient";
 
 export const revalidate = 3600;
@@ -18,11 +19,13 @@ export default function Home() {
     avatarUrl: a.avatarUrl,
     count: canonicals.filter((c) => c.artistSlug === a.slug).length,
   }));
+  const hero = outtakeOfTheDay(songs);
+  const heroIndex = hero ? songs.findIndex((s) => s.songId === hero.songId) : 0;
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "{ OUTTAKE } — Unreleased Music Vault",
+    name: "[ OUTTAKE ] — Unreleased Music Archive",
     description:
       "A verified archive of unreleased music. Only currently-playable originals — every track machine-verified.",
     numberOfItems: songs.length,
@@ -30,7 +33,14 @@ export default function Home() {
 
   return (
     <>
-      <HomeClient songs={songs} artists={artists} />
+      <HomeClient
+        songs={songs}
+        artists={artists}
+        hero={hero}
+        heroIndex={heroIndex}
+        altTakes={alternateTakes(songs)}
+        deepCuts={deepArchive(songs)}
+      />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </>
   );

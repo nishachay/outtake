@@ -7,8 +7,6 @@ import { probeYouTube, type ProbeResult } from "./probe";
 import {
   artists,
   pendingSubmissions,
-  reports,
-  REPORT_THRESHOLD,
   songs,
   songVersions,
   versionIdOf,
@@ -198,59 +196,11 @@ function staticSongById(id: string, canon: string, all: boolean) {
   return { song: variant, versions };
 }
 
-export async function handleReport(
-  ctx: Ctx,
-  body: { songId?: string; reason?: string; versionId?: string },
-) {
-  if (!ctx.db) throw new ApiError(503, "database unavailable");
-  const songId = body.songId;
-  if (!songId) throw new ApiError(400, "songId is required");
-
-  let songRow;
-  try {
-    songRow = await ctx.db.query.songs.findFirst({ where: (s, { eq: e }) => e(s.id, songId) });
-  } catch {
-    throw new ApiError(503, "database unavailable");
-  }
-  if (!songRow) throw new ApiError(404, "song not found");
-
-  const versionId = body.versionId ?? null;
-  const targetVersion = versionId
-    ? await ctx.db.query.songVersions.findFirst({
-        where: (v, { eq: e }) => e(v.id, versionId),
-      })
-    : null;
-  if (versionId && !targetVersion)
-    throw new ApiError(404, "version not found; dead versions are hidden");
-
-  await ctx.db.insert(reports).values({
-    id: crypto.randomUUID(),
-    songId,
-    versionId: versionId ?? null,
-    reason: body.reason ?? null,
-  });
-
-  if (targetVersion) {
-    const next = targetVersion.reportCount + 1;
-    await ctx.db
-      .update(songVersions)
-      .set({
-        reportCount: next,
-        status: next >= REPORT_THRESHOLD ? "dead" : targetVersion.status,
-      })
-      .where(eq(songVersions.id, targetVersion.id));
-  } else {
-    const next = songRow.reportCount + 1;
-    await ctx.db
-      .update(songs)
-      .set({
-        reportCount: next,
-        status: next >= REPORT_THRESHOLD ? "dead" : songRow.status,
-      })
-      .where(eq(songs.id, songRow.id));
-  }
-
-  return { ok: true, reported: songId };
+/** Listener reports were retired: the player auto-falls through dead
+ *  embeds and the daily refresh re-probes everything, so a separate
+ *  report flow only added surface without adding trust. */
+export async function handleReport() {
+  throw new ApiError(410, "reports retired — dead links heal via auto-fallback + refresh");
 }
 
 export async function handleSubmit(

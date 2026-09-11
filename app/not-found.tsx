@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <div>
       <h1 className="section-pixel-title pixel-text" style={{ fontSize: 24 }}>
-        Lost in the vault?
+        Lost in the archive?
       </h1>
       <p
         style={{
@@ -22,7 +22,7 @@ export default function NotFound() {
       <div style={{ marginTop: 16 }}>
         <Link href="/" className="back-to-home-btn" style={{ marginBottom: 0 }}>
           <ArrowLeft size={14} strokeWidth={1.75} />
-          <span>Back to the vault</span>
+          <span>Back to the archive</span>
         </Link>
       </div>
     </div>
