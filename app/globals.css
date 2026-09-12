@@ -805,6 +805,126 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ALTERNATE TAKES — structured version rows (deck + song detail) */
+.ver-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 12px;
+}
+.ver-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--body-font);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+.ver-count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+.ver-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.ver-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  font-family: var(--body-font);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+.ver-row:hover {
+  background: var(--surface-card-hover);
+  border-color: var(--border-card-hover);
+}
+.ver-row.active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+.ver-idx {
+  flex-shrink: 0;
+  min-width: 24px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ver-row.active .ver-idx {
+  color: #f87171;
+}
+.ver-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.ver-play {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.ver-row:hover .ver-play,
+.ver-row:focus-visible .ver-play {
+  opacity: 1;
+}
+.ver-eq {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  color: #f87171;
+}
+.ver-eq i {
+  width: 2px;
+  height: 4px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: ver-eq-bounce 0.9s ease-in-out infinite;
+}
+.ver-eq i:nth-child(2) {
+  animation-delay: 0.22s;
+}
+.ver-eq i:nth-child(3) {
+  animation-delay: 0.44s;
+}
+.ver-eq.paused i {
+  animation-play-state: paused;
+  height: 4px;
+}
+@keyframes ver-eq-bounce {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 12px;
+  }
+}
+
 /* ══════════════════════════════════════
    SLEEK AUDIO PROGRESS BAR (PRO AUDIO SCRUBBER)
    ══════════════════════════════════════ */

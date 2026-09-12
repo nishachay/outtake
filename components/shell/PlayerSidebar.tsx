@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { usePlayer } from "./player-context";
 import { fmtTime, vaultAccent } from "@/lib/vault";
+import VersionRows from "@/components/vault/VersionRows";
 import Turntable from "./Turntable";
 
 const S = 18;
@@ -132,23 +133,13 @@ export default function PlayerSidebar() {
           )}
         </div>
 
-        {song && song.sources.length > 1 && (
-          <div className="deck-versions-row" aria-label="Choose a version">
-            <span className="deck-versions-label">Versions</span>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-              {song.sources.map((src) => (
-                <button
-                  key={src.key}
-                  className={`version-chip${src.key === player.srcKey ? " active" : ""}`}
-                  title={`Play ${src.name}`}
-                  onClick={() => player.selectVersion(src.key)}
-                >
-                  <span className="vc-num">{src.num}</span>
-                  <span>{src.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+        {song && (
+          <VersionRows
+            sources={song.sources}
+            activeKey={player.srcKey}
+            onSelect={(key) => player.selectVersion(key)}
+            live={player.playing}
+          />
         )}
 
         <div className="progress-bar-box">

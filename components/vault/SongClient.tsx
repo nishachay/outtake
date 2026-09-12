@@ -1,10 +1,11 @@
-/** Song detail actions — play in the deck + version chips + share, vault-styled. */
+/** Song detail actions — play in the deck + version rows + share, vault-styled. */
 "use client";
 
 import { useState } from "react";
 import { Check, Link2, Play } from "lucide-react";
 import { usePlayer } from "@/components/shell/player-context";
 import type { DeckSong } from "@/lib/vault";
+import VersionRows from "./VersionRows";
 
 interface SongClientProps {
   song: DeckSong;
@@ -71,24 +72,12 @@ export default function SongClient({ song, artistSongs, queueKey }: SongClientPr
           <span>{copied ? "Link copied" : "Share"}</span>
         </button>
       </div>
-      {song.sources.length > 1 && (
-        <div className="deck-versions-row" aria-label="Choose a version" style={{ marginTop: 14 }}>
-          <span className="deck-versions-label">Versions</span>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-            {song.sources.map((src) => (
-              <button
-                key={src.key}
-                className={`version-chip${src.key === activeKey ? " active" : ""}`}
-                title={`Play ${src.name}`}
-                onClick={() => playVersion(src.key)}
-              >
-                <span className="vc-num">{src.num}</span>
-                <span>{src.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <VersionRows
+        sources={song.sources}
+        activeKey={activeKey}
+        onSelect={playVersion}
+        live={showing && player.playing}
+      />
     </>
   );
 }
