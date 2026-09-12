@@ -101,15 +101,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
-  const [likedIds, setLikedIds] = useState<string[]>(() =>
-    typeof window === "undefined" ? [] : readJson<string[]>(LIKES_KEY, []),
-  );
-  const [versionPrefs, setVersionPrefs] = useState<Record<string, string>>(() =>
-    typeof window === "undefined" ? {} : readJson<Record<string, string>>(VERSION_KEY, {}),
-  );
-  const [lastSong, setLastSong] = useState<DeckSong | null>(() =>
-    typeof window === "undefined" ? null : readJson<DeckSong | null>(LAST_KEY, null),
-  );
+  // Persisted state starts at the SSR-safe default and hydrates from
+  // localStorage after mount — so the first client render matches the
+  // server HTML exactly (no hydration mismatch from resume/likes).
+  const [likedIds, setLikedIds] = useState<string[]>([]);
+  const [versionPrefs, setVersionPrefs] = useState<Record<string, string>>({});
+  const [lastSong, setLastSong] = useState<DeckSong | null>(null);
+
+  useEffect(() => {
+    setLikedIds(readJson<string[]>(LIKES_KEY, []));
+    setVersionPrefs(readJson<Record<string, string>>(VERSION_KEY, {}));
+    setLastSong(readJson<DeckSong | null>(LAST_KEY, null));
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ytRef = useRef<any>(null);
