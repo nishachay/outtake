@@ -28,6 +28,7 @@ Revisit SSG strategy before going past ~50 artists (build is ~10 min at 309 page
 | artist | rows scraped | yt ids | already held | playable new | shipped | review min |
 | ------ | ------------ | ------ | ------------ | ------------ | ------- | ---------- |
 | Drake  | 1127         | 23     | 0            | 21 probe-playable, ~1 real song | 0 | — |
+| Carti  | 14 searches + 866 playlists + 15 channels | 21,235 | 12 | 931 HIGH probed all-playable → 630 Carti-primary / 289 other-artist (27 Uzi, 23 Juice banked) | 0 (630 await ear-check) | — |
 
 Learning 2026-09-12: sheet `Link(s)` are mostly *reference* links
 (interviews, live footage confirming a song exists), not song audio —
