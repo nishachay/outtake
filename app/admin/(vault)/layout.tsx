@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Disc3, LayoutDashboard, PlusCircle, Users, Inbox } from "lucide-react";
+import { Disc3, LayoutDashboard, ListChecks, PlusCircle, Users, Inbox } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 
@@ -9,6 +9,7 @@ const NAV = [
   { href: "/admin/artists", label: "Artists", icon: Users },
   { href: "/admin/songs", label: "Add Song", icon: PlusCircle },
   { href: "/admin/pending", label: "Pending", icon: Inbox },
+  { href: "/admin/review", label: "Review", icon: ListChecks },
 ];
 
 export default async function AdminVaultLayout({

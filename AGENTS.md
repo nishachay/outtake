@@ -7,7 +7,7 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 ## Run & verify
 
 - Dev: `npm run dev` → http://localhost:3000 (Turbopack).
-- Build: `npm run build` (typecheck + prerender all 288 songs / 12 artists). Needs any `AUTH_SECRET` value in the environment (`AUTH_SECRET=x npm run build`) — the auth module refuses to initialize in production without one. No lint gate (eslint ignoreDuringBuilds); rely on `npm run typecheck` + `npm run build`.
+- Build: `npm run build` (typecheck + prerender home + artists; song pages render on demand + ISR). Needs any `AUTH_SECRET` value in the environment (`AUTH_SECRET=x npm run build`) — the auth module refuses to initialize in production without one. No lint gate (eslint ignoreDuringBuilds); rely on `npm run typecheck` + `npm run build`.
 - API smoke (no DB): `npm run build && npm start`, then `curl :3000/api/health` → `{"mode":"static-fallback", tracks: 304}`. Admin endpoints 401 without a bearer `ADMIN_KEY`, and 503 "database unavailable" when `DATABASE_URL` is unset.
 - npm on this Windows-drvfs box is slow: install with `--no-audit --no-fund --cache=/home/nishachay/.npm-linux-cache` and long timeouts. `next build` takes ~10 min locally (drvfs + low RAM); when a stale `next-server` is running it can serve old routes — always kill all node/next PIDs before `next build`/`next start`. Node comes from nvm (v20.20.2); a stale snap node v10 is also on PATH — if `node -v` shows v10, load nvm first (Next 15 needs ≥18).
 
@@ -26,7 +26,7 @@ The curated slate is **288 tracks across 12 verified artists** (97 Charlie Puth 
 - `songs.status`: `active` | `dead` | `private`. The canonical row's verdict is authoritative; versions are surfaced only when the canonical or a version is `active`.
 - Versions: derived id = `${songId}__v${n}` (`versionIdOf`, 1-based); a version whose youtubeId equals the canonical id is skipped.
 - Artist lookup by `slug` (lowercased, dashes). Song ids are stable strings; Charlie entries use the YouTube id.
-- `scripts/catalog.json` only ever contains verified, playable videos. `scripts/import-catalog.ts` (`npm run db:import`) idempotently upserts catalog → Neon (artists, canonical songs, versions) — safe to run before the refresh job; requires `DATABASE_URL` in `.env`.
+- `scripts/catalog.json` only ever contains verified, playable videos. `scripts/import-catalog.ts` (`npm run db:import`) idempotently upserts catalog → Neon (artists, canonical songs, versions) — safe to run before the refresh job; requires `DATABASE_URL` in `.env`. `scripts/export-catalog.ts` (`npm run db:export`) merges shipped DB rows back into `scripts/catalog.json` (active songs/versions only, never deletes) — run after review sessions, review the diff, commit, redeploy.
 
 ## Components & design
 

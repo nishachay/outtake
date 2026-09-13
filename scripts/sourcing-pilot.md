@@ -10,7 +10,7 @@ Per-artist funnel:
 3. Dedupe — against catalog + within batch (collabs keep `-b` copies per artist).
 4. Probe — `probeYouTube`, throttled, results cached.
 5. Review — human correctness pass in admin.
-6. Ship — portrait + `portrait-credits.json` + catalog entries, then check the box.
+6. Ship — approve in `/admin/review`, then `npm run db:export`, portrait + `portrait-credits.json`, review the catalog diff, commit + deploy, then check the box.
 
 ## Phase 1 (measure before scaling)
 
@@ -21,7 +21,7 @@ Per-artist funnel:
 
 Ship one artist fully (through step 6) before starting the next.
 After Phase 1, record yield stats below and decide Phase 2 pace.
-Revisit SSG strategy before going past ~50 artists (build is ~10 min at 309 pages).
+Song pages are on-demand ISR (no SSG ceiling on songs); artist pages still prerender — revisit past ~500 artists.
 
 ## Yield log
 

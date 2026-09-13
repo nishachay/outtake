@@ -261,7 +261,10 @@ export async function handleAdminPending(ctx: Ctx, opts: { all?: boolean } = {})
   return { pending: rows };
 }
 
-export async function handleAdminApprove(ctx: Ctx, body: { id?: string }) {
+export async function handleAdminApprove(
+  ctx: Ctx,
+  body: { id?: string; artist?: string; title?: string },
+) {
   await requireAdmin(ctx);
   const id = body.id;
   if (!id) throw new ApiError(400, "id is required");
@@ -280,11 +283,12 @@ export async function handleAdminApprove(ctx: Ctx, body: { id?: string }) {
     throw new ApiError(422, `video is not playable (${probe.status})`);
   }
 
-  const artistName = sub.suggestedArtist ?? probe.author;
+  // Reviewer corrections win; fall back to the submission, then the probe.
+  const artistName = body.artist?.trim() || sub.suggestedArtist || probe.author;
   const created = await upsertSongFromProbe(ctx, {
     probe,
     artistName,
-    title: sub.suggestedTitle ?? probe.title ?? null,
+    title: body.title?.trim() || sub.suggestedTitle || probe.title || null,
     versionLabel: null,
   });
 

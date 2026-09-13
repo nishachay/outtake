@@ -11,10 +11,14 @@ import SongClient from "@/components/vault/SongClient";
 
 export const revalidate = 3600;
 
-export function generateStaticParams() {
-  return getCatalog()
-    .tracks.filter((t) => !t.id.includes("__v"))
-    .map((t) => ({ slug: t.songId }));
+// Song pages render on demand (ISR): prerendering every song made build
+// time grow with the catalog, which breaks mass-shipping. First visit
+// renders from the bundle, then caches + revalidates hourly. The sitemap
+// still lists every song URL so crawlers trigger + cache the renders.
+export const dynamicParams = true;
+
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
 }
 
 export async function generateMetadata({
