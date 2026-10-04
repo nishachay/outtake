@@ -62,3 +62,6 @@ scripts/curate_report.txt
 # Tooling lock file
 skills-lock.json
 .neon
+
+# stray local screenshots
+stonk + poly/
