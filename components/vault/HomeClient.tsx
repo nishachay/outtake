@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Heart, Play, Shuffle } from "lucide-react";
+import { Heart, Pause, Play, Shuffle } from "lucide-react";
 import { usePlayer } from "@/components/shell/player-context";
 import type { DeckSong } from "@/lib/vault";
 import { vaultCatno, vaultInitial, vaultSide } from "@/lib/vault";
@@ -30,11 +30,17 @@ interface HomeClientProps {
   deepCuts: DeckSong[];
 }
 
-function RailCards({ title, note, tracks, songs }: {
+/**
+ * A rail queues *itself*, not the whole catalog. It previously passed the full
+ * `songs` array, so clicking one card in a six-track rail silently queued all 288
+ * tracks — which reads exactly like random playback. Each rail also gets its own
+ * queueKey so two rails never both highlight the active row.
+ */
+function RailCards({ title, note, tracks, railKey }: {
   title: string;
   note: string;
   tracks: DeckSong[];
-  songs: DeckSong[];
+  railKey: string;
 }) {
   const player = usePlayer();
   if (!tracks.length) return null;
@@ -45,13 +51,17 @@ function RailCards({ title, note, tracks, songs }: {
         <span className="view-all-link">{note}</span>
       </div>
       <div className="cards-grid">
-        {tracks.map((s) => {
-          const idx = songs.findIndex((t) => t.songId === s.songId);
+        {tracks.map((s, i) => {
+          const isActive = player.queueKey === railKey && player.song?.songId === s.songId;
           return (
             <button
               key={s.songId}
               className="card-item-featured"
-              onClick={() => player.playQueue(songs, idx >= 0 ? idx : 0, "home")}
+              aria-current={isActive ? "true" : undefined}
+              onClick={() => {
+                if (isActive) player.toggle();
+                else player.playQueue(tracks, i, railKey);
+              }}
             >
               <div className="card-cover-wrap">
                 <VaultCover id={s.songId} title={s.title} artistSlug={s.artistSlug} artistName={s.artistName} />
@@ -64,8 +74,12 @@ function RailCards({ title, note, tracks, songs }: {
                   <div className="card-artist">{s.artistName}</div>
                 </div>
                 <div className="card-controls-cluster">
-                  <span className="card-ctrl-btn play" title="Play Track">
-                    <Play size={14} strokeWidth={1.75} fill="currentColor" style={{ marginLeft: 1 }} />
+                  <span className="card-ctrl-btn play" title={isActive ? "Pause" : "Play Track"}>
+                    {isActive && player.playing ? (
+                      <Pause size={14} strokeWidth={1.75} fill="currentColor" />
+                    ) : (
+                      <Play size={14} strokeWidth={1.75} fill="currentColor" style={{ marginLeft: 1 }} />
+                    )}
                   </span>
                 </div>
               </div>
@@ -181,7 +195,7 @@ export default function HomeClient({ songs, artists, hero, heroIndex, altTakes, 
                 className="hero-ghost-btn"
                 title="Play a random outtake from the archive"
                 onClick={() =>
-                  player.playQueue(songs, Math.floor(Math.random() * songs.length), "home")
+                  player.shuffleQueue(songs, "home")
                 }
               >
                 <Shuffle size={15} strokeWidth={1.75} />
@@ -218,8 +232,8 @@ export default function HomeClient({ songs, artists, hero, heroIndex, altTakes, 
         </div>
       </div>
 
-      <RailCards title="Alternate Takes" note="Songs with V2s" tracks={altTakes} songs={songs} />
-      <RailCards title="Deep Archive" note="Rotates weekly" tracks={deepCuts} songs={songs} />
+      <RailCards title="Alternate Takes" note="Songs with V2s" tracks={altTakes} railKey="home:alttakes" />
+      <RailCards title="Deep Archive" note="Rotates weekly" tracks={deepCuts} railKey="home:deeparchive" />
     </>
   );
 }

@@ -1009,6 +1009,78 @@
   opacity: 0.8;
   transform: scale(1.05);
 }
+/* "1" marker on the repeat icon for repeat-one. */
+.ctrl-icn-badge {
+  position: absolute;
+  transform: translate(9px, -8px);
+  font-family: var(--display-font);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+.ctrl-icn-btn {
+  position: relative;
+}
+
+/* ── Up next ───────────────────────────────────────────────────────────── */
+.deck-up-next {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-card);
+}
+.deck-up-next-label {
+  font-family: var(--display-font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.deck-up-next-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.deck-up-next-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.deck-up-next-row:hover {
+  background: var(--surface-card-hover);
+}
+.deck-up-next-idx {
+  font-family: var(--display-font);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.deck-up-next-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deck-up-next-artist {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
 .ctrl-main-play-btn {
   width: 56px;
   height: 56px;

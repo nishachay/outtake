@@ -195,13 +195,20 @@ export default function PlayerSidebar() {
         <div className="player-controls-row">
           <button
             className="ctrl-icn-btn"
-            title="Repeat Mode"
-            style={{ opacity: player.repeat ? 1 : 0.5 }}
-            onClick={player.toggleRepeat}
-            aria-label="Toggle repeat"
-            aria-pressed={player.repeat}
+            title={
+              player.repeat === "off"
+                ? "Repeat off"
+                : player.repeat === "all"
+                  ? "Repeat queue"
+                  : "Repeat this track"
+            }
+            style={{ opacity: player.repeat === "off" ? 0.5 : 1 }}
+            onClick={player.cycleRepeat}
+            aria-label={`Repeat: ${player.repeat}`}
+            aria-pressed={player.repeat !== "off"}
           >
             <Repeat size={S} strokeWidth={STROKE} />
+            {player.repeat === "one" ? <span className="ctrl-icn-badge">1</span> : null}
           </button>
           <button className="ctrl-icn-btn" title="Previous Track" onClick={player.prev} aria-label="Previous track">
             <SkipBack size={S} strokeWidth={STROKE} fill="currentColor" />
@@ -227,6 +234,22 @@ export default function PlayerSidebar() {
             <Shuffle size={S} strokeWidth={STROKE} />
           </button>
         </div>
+
+        {/* Up next — the queue was invisible, which is why shuffle felt random. */}
+        {player.upNext.length > 0 ? (
+          <div className="deck-up-next">
+            <div className="deck-up-next-label">Up next</div>
+            <ol className="deck-up-next-list">
+              {player.upNext.map((s, i) => (
+                <li key={`${s.songId}:${i}`} className="deck-up-next-row">
+                  <span className="deck-up-next-idx">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="deck-up-next-title">{s.title}</span>
+                  <span className="deck-up-next-artist">{s.artistName}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

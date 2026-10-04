@@ -26,6 +26,48 @@ const LIKES_KEY = "m2d_likes_v1";
 const VERSION_KEY = "m2d_version_pref_v1";
 const LAST_KEY = "m2d_last_song_v1";
 
+/** off → wraps nothing and stops at the end; all → wraps; one → repeats the track. */
+type RepeatMode = "off" | "all" | "one";
+
+const identityOrder = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
+
+/**
+ * Deterministic Fisher–Yates over queue indices.
+ *
+ * Shuffle used to be `Math.floor(Math.random() * q.length)` evaluated on every
+ * skip, which could replay the track you were on, jump backwards, and gave no
+ * sense of order at all. Real shuffle is an *order* that you walk.
+ *
+ * Seeded from the queue signature so the same list always shuffles the same way:
+ * two reasons. SSR and hydration must agree, and `Math.random()` reaching
+ * rendered output costs ISR write units on Vercel (see AGENTS.md).
+ */
+function shuffledOrder(n: number, seed: string): number[] {
+  const out = identityOrder(n);
+  let state = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    state ^= seed.charCodeAt(i);
+    state = Math.imul(state, 16777619);
+  }
+  state = state >>> 0 || 1;
+  const next = () => {
+    // xorshift32 — seeded, no Math.random, no allocation.
+    state ^= state << 13;
+    state >>>= 0;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    state >>>= 0;
+    return state / 4294967296;
+  };
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+
 interface PlayerContextValue {
   queue: DeckSong[];
   queueKey: string;
@@ -42,7 +84,9 @@ interface PlayerContextValue {
   searchQuery: string;
   favoritesOnly: boolean;
   shuffle: boolean;
-  repeat: boolean;
+  repeat: RepeatMode;
+  /** Next tracks in playback order — the queue is otherwise invisible. */
+  upNext: DeckSong[];
   likedCount: number;
   lastSong: DeckSong | null;
   resumeLast: () => void;
@@ -61,7 +105,10 @@ interface PlayerContextValue {
   setSearchQuery: (q: string) => void;
   setFavoritesOnly: (only: boolean) => void;
   toggleShuffle: () => void;
-  toggleRepeat: () => void;
+  /** Turn shuffle on and play a list from the head of a fresh order. */
+  shuffleQueue: (queue: DeckSong[], queueKey: string) => void;
+  /** off → all → one → off */
+  cycleRepeat: () => void;
   isLiked: (id: string) => boolean;
   toggleLike: (id: string) => void;
   /** Pause progress polling while the scrub bar is dragged. */
@@ -100,7 +147,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatMode>("off");
+  // Playback order: a permutation of queue indices, walked by a cursor. Rebuilt
+  // only when the queue identity changes or shuffle is toggled.
+  const [order, setOrderState] = useState<number[]>([]);
+  const [orderPos, setOrderPos] = useState(0);
+  const orderRef = useRef<number[]>([]);
+  const orderSigRef = useRef("");
   // Persisted state starts at the SSR-safe default and hydrates from
   // localStorage after mount — so the first client render matches the
   // server HTML exactly (no hydration mismatch from resume/likes).
@@ -121,8 +174,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const scrubbingRef = useRef(false);
 
   // Ref mirror for use inside YT event callbacks (avoids stale closures).
-  const live = useRef({ queue: queue, index: index, srcKey: srcKey, shuffle: shuffle, repeat: repeat });
-  live.current = { queue, index, srcKey, shuffle, repeat };
+  // Synced in an effect rather than during render — writing refs during render is
+  // unsupported under concurrent rendering.
+  const live = useRef({ queue, index, srcKey, shuffle, repeat, queueKey, order, orderPos });
+  useEffect(() => {
+    live.current = { queue, index, srcKey, shuffle, repeat, queueKey, order, orderPos };
+  }, [queue, index, srcKey, shuffle, repeat, queueKey, order, orderPos]);
+
+  /** Replace the playback order and cursor together. */
+  const commitOrder = useCallback((next: number[], pos: number) => {
+    orderRef.current = next;
+    setOrderState(next);
+    setOrderPos(Math.max(0, Math.min(pos, Math.max(0, next.length - 1))));
+  }, []);
+
+  const signatureOf = (q: DeckSong[], key: string): string =>
+    `${key}|${q.length}|${q[0]?.songId ?? ""}|${q[q.length - 1]?.songId ?? ""}`;
 
   const song: DeckSong | null = index >= 0 && index < queue.length ? queue[index] : null;
   const source: VersionSource | null =
@@ -164,20 +231,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               }
               return s.sources[0]?.key ?? "canonical";
             })();
+
+      // Reconcile playback order. Same queue identity → reuse the existing
+      // permutation (so shuffling survives a track change). New queue → rebuild.
+      const sig = signatureOf(nextQueue, nextKey);
+      if (sig !== orderSigRef.current || orderRef.current.length !== nextQueue.length) {
+        orderSigRef.current = sig;
+        const rebuilt = live.current.shuffle
+          ? shuffledOrder(nextQueue.length, sig)
+          : identityOrder(nextQueue.length);
+        commitOrder(rebuilt, rebuilt.indexOf(nextIndex));
+      } else {
+        const pos = orderRef.current.indexOf(nextIndex);
+        if (pos >= 0) setOrderPos(pos);
+      }
+
       setQueue(nextQueue);
       setQueueKey(nextKey);
       setIndex(nextIndex);
       setSrcKey(key);
-      setVersionPrefs((prev) => {
-        if (prev[s.songId] === key) return prev;
-        const nextPrefs = { ...prev, [s.songId]: key };
-        try {
-          localStorage.setItem(VERSION_KEY, JSON.stringify(nextPrefs));
-        } catch {
-          /* ignore */
-        }
-        return nextPrefs;
-      });
+      setVersionPrefs((prev) =>
+        prev[s.songId] === key ? prev : { ...prev, [s.songId]: key },
+      );
       setCur(0);
       setTot(s.durationSec ?? 0);
       setPlaying(true);
@@ -185,8 +260,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const src = s.sources.find((x) => x.key === key) ?? s.sources[0];
       playSource(src?.vid ?? s.youtubeId);
     },
-    [playSource],
+    [playSource, commitOrder],
   );
+
+  // Persist version preferences in an effect. Writing localStorage inside a
+  // state updater only works because it is idempotent under StrictMode's
+  // double-invoke; it is not a supported place for side effects.
+  useEffect(() => {
+    try {
+      localStorage.setItem(VERSION_KEY, JSON.stringify(versionPrefs));
+    } catch {
+      /* private mode / quota */
+    }
+  }, [versionPrefs]);
+
+  // Same for likes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIKES_KEY, JSON.stringify(likedIds));
+    } catch {
+      /* private mode / quota */
+    }
+  }, [likedIds]);
 
   /** Register a stage list as the queue context (no autoplay).
    *  Carries the deck position when the current song is in the new list,
@@ -225,18 +320,104 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!song && queue.length > 0) playQueue(queue, 0, queueKey || "home");
   }, [song, playing, queue, queueKey, playQueue]);
 
-  const next = useCallback(() => {
-    const { queue: q, index: i, shuffle: sh } = live.current;
-    if (!q.length) return;
-    if (sh) return playQueue(q, Math.floor(Math.random() * q.length), queueKey);
-    playQueue(q, (i + 1) % q.length, queueKey);
-  }, [playQueue, queueKey]);
+  const stopPlayback = useCallback(() => {
+    const p = ytRef.current;
+    if (p) {
+      try {
+        p.pauseVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+    setPlaying(false);
+  }, []);
 
-  const prev = useCallback(() => {
-    const { queue: q, index: i } = live.current;
-    if (!q.length) return;
-    playQueue(q, (i - 1 + q.length) % q.length, queueKey);
-  }, [playQueue, queueKey]);
+  /** Replay the current track from the top — repeat-one. */
+  const restartCurrent = useCallback(() => {
+    const { queue: q, index: i, srcKey: sk } = live.current;
+    const s = q[i];
+    if (!s) return;
+    setCur(0);
+    setPlaying(true);
+    const src = s.sources.find((x) => x.key === sk) ?? s.sources[0];
+    const p = ytRef.current;
+    if (src && p) {
+      try {
+        p.seekTo(0, true);
+        p.playVideo();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  /** Play whichever track sits at a position in the current order. */
+  const playOrderPos = useCallback(
+    (pos: number) => {
+      const { queue: q, order: ord, queueKey: qk } = live.current;
+      if (!q.length || !ord.length) return;
+      const idx = ord[Math.max(0, Math.min(pos, ord.length - 1))];
+      if (idx === undefined) return;
+      playQueue(q, idx, qk);
+    },
+    [playQueue],
+  );
+
+  /**
+   * The single auto-advance path. `next`/`prev` and the player's ENDED event all
+   * go through this, so there is no duplicated logic to drift.
+   *
+   * Boundary behaviour follows the familiar convention: with repeat off the queue
+   * stops at the end instead of silently wrapping, with repeat all it wraps, and
+   * repeat one only affects the ENDED event — pressing next still skips ahead.
+   */
+  const advance = useCallback(
+    (delta: number) => {
+      const { order: ord, orderPos: op, repeat: rm } = live.current;
+      if (!ord.length) return;
+      const target = op + delta;
+      if (target < 0) {
+        if (rm === "off") return;
+        playOrderPos(ord.length - 1);
+        return;
+      }
+      if (target >= ord.length) {
+        if (rm === "off") {
+          stopPlayback();
+          return;
+        }
+        playOrderPos(0);
+        return;
+      }
+      playOrderPos(target);
+    },
+    [playOrderPos, stopPlayback],
+  );
+
+  const next = useCallback(() => advance(1), [advance]);
+  const prev = useCallback(() => advance(-1), [advance]);
+
+  /**
+   * Transport callbacks reached through a ref, so the long-lived YT subscription
+   * and the keydown listener stay mounted exactly once without capturing stale
+   * closures. Declared here because the YT effect below reads it on mount.
+   * Synced in an effect — assigning refs during render is unsupported.
+   */
+  const transportRef = useRef({ toggle, advance, restartCurrent, stopPlayback });
+  useEffect(() => {
+    transportRef.current = { toggle, advance, restartCurrent, stopPlayback };
+  }, [toggle, advance, restartCurrent, stopPlayback]);
+
+  /** Next tracks in playback order, for the deck's "up next" panel. */
+  const upNext = useMemo(() => {
+    if (!order.length || !queue.length) return [];
+    const out: DeckSong[] = [];
+    for (let i = orderPos + 1; i < order.length && out.length < 5; i++) {
+      const s = queue[order[i]];
+      if (s) out.push(s);
+    }
+    return out;
+  }, [order, orderPos, queue]);
 
   const seek = useCallback(
     (pct: number) => {
@@ -279,21 +460,54 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
   const toggleRail = useCallback(() => setRailCollapsed((v) => !v), []);
-  const toggleShuffle = useCallback(() => setShuffle((v) => !v), []);
-  const toggleRepeat = useCallback(() => setRepeat((v) => !v), []);
+
+  /**
+   * Toggling shuffle keeps the current track playing and reshuffles only what
+   * comes after it — flipping the mode mid-track should not interrupt you.
+   */
+  const toggleShuffle = useCallback(() => {
+    const { queue: q, order: ord, orderPos: op, queueKey: qk, shuffle: was } = live.current;
+    const willShuffle = !was;
+    setShuffle(willShuffle);
+    if (!q.length) return;
+    const sig = orderSigRef.current || signatureOf(q, qk);
+    orderSigRef.current = sig;
+    const current = ord[op];
+    if (willShuffle) {
+      const rest = shuffledOrder(q.length, sig).filter((i) => i !== current);
+      commitOrder(current === undefined ? rest : [current, ...rest], 0);
+      return;
+    }
+    const natural = identityOrder(q.length);
+    commitOrder(natural, current === undefined ? 0 : natural.indexOf(current));
+  }, [commitOrder]);
+
+  const cycleRepeat = useCallback(() => {
+    setRepeat((m) => (m === "off" ? "all" : m === "all" ? "one" : "off"));
+  }, []);
+
+  /**
+   * "Shuffle all" — enable shuffle and start at the head of a fresh order.
+   * The order is committed before playQueue runs, so playQueue takes the
+   * reuse-order branch and does not rebuild it unshuffled.
+   */
+  const shuffleQueue = useCallback(
+    (nextQueue: DeckSong[], nextKey: string) => {
+      if (!nextQueue.length) return;
+      setShuffle(true);
+      const sig = signatureOf(nextQueue, nextKey);
+      orderSigRef.current = sig;
+      const fresh = shuffledOrder(nextQueue.length, sig);
+      commitOrder(fresh, 0);
+      playQueue(nextQueue, fresh[0], nextKey);
+    },
+    [commitOrder, playQueue],
+  );
 
   const likedSet = useMemo(() => new Set(likedIds), [likedIds]);
   const isLiked = useCallback((id: string) => likedSet.has(id), [likedSet]);
   const toggleLike = useCallback((id: string) => {
-    setLikedIds((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      try {
-        localStorage.setItem(LIKES_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    setLikedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }, []);
 
   // ── YouTube IFrame API boot ──
@@ -311,48 +525,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setPlaying(false);
       } else if (ev.data === S.ENDED) {
         setPlaying(false);
-        const { queue: q, index: i, shuffle: sh, repeat: rp } = live.current;
-        if (!q.length) return;
-        if (rp) {
-          // Honest repeat-one: replay the same track from the top.
-          const s = q[i];
-          if (!s) return;
-          setCur(0);
-          setPlaying(true);
-          const src = s.sources.find((x) => x.key === live.current.srcKey) ?? s.sources[0];
-          const p = ytRef.current;
-          if (src && p) {
-            try {
-              p.seekTo(0, true);
-              p.playVideo();
-            } catch {
-              /* ignore */
-            }
-          }
+        const { repeat: rm, order: ord, orderPos: op } = live.current;
+        if (!ord.length) return;
+        if (rm === "one") {
+          transportRef.current.restartCurrent();
           return;
         }
-        const ni = sh ? Math.floor(Math.random() * q.length) : (i + 1) % q.length;
-        const s = q[ni];
-        if (!s) return;
-        const saved = readJson<Record<string, string>>(VERSION_KEY, {});
-        const key =
-          saved[s.songId] && s.sources.some((x) => x.key === saved[s.songId])
-            ? saved[s.songId]
-            : (s.sources[0]?.key ?? "canonical");
-        setIndex(ni);
-        setSrcKey(key);
-        setCur(0);
-        setTot(s.durationSec ?? 0);
-        const src = s.sources.find((x) => x.key === key) ?? s.sources[0];
-        const p = ytRef.current;
-        if (src && p) {
-          try {
-            p.loadVideoById(src.vid);
-            p.playVideo();
-          } catch {
-            /* ignore */
-          }
-        }
+        // Hand off to the same advance() the next button uses, so the two cannot
+        // drift apart again.
+        transportRef.current.advance(1);
       }
     };
 
@@ -506,24 +687,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
       if (e.code === "Space") {
         e.preventDefault();
-        toggleRef.current();
+        transportRef.current.toggle();
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        nextRef.current();
+        transportRef.current.advance(1);
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        prevRef.current();
+        transportRef.current.advance(-1);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
-  const toggleRef = useRef(toggle);
-  toggleRef.current = toggle;
-  const nextRef = useRef(next);
-  nextRef.current = next;
-  const prevRef = useRef(prev);
-  prevRef.current = prev;
 
   // ── Remember the last played song for "Resume" on an empty deck ──
   const songId = song?.songId;
@@ -572,6 +747,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     favoritesOnly,
     shuffle,
     repeat,
+    upNext,
     likedCount: likedIds.length,
     lastSong,
     resumeLast,
@@ -590,7 +766,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setSearchQuery,
     setFavoritesOnly,
     toggleShuffle,
-    toggleRepeat,
+    shuffleQueue,
+    cycleRepeat,
     isLiked,
     toggleLike,
     setScrubbing,

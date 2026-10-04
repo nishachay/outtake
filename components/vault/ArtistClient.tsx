@@ -75,7 +75,7 @@ export default function ArtistClient({ songs, slug }: ArtistClientProps) {
               className="hero-ghost-btn"
               style={{ height: 34, fontSize: 12, borderColor: "var(--pill-border)", color: "var(--text-primary)" }}
               onClick={() =>
-                player.playQueue(visible, Math.floor(Math.random() * visible.length), key)
+                player.shuffleQueue(visible, key)
               }
               title="Shuffle all outtakes"
               aria-label="Shuffle all outtakes"
