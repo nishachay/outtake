@@ -2,6 +2,7 @@ import { and, asc, count, eq, isNull, or, sql } from "drizzle-orm";
 
 import type { DB } from "./db";
 import { getCatalog } from "./dataloader";
+import { getArtists, getQueueManifest } from "./queries";
 import type { Variant } from "./dataloader";
 import { probeYouTube, type ProbeResult } from "./probe";
 import {
@@ -33,28 +34,48 @@ export interface Ctx {
 // Public
 // ---------------------------------------------------------------------------
 
+/**
+ * Liveness plus a data-freshness signal.
+ *
+ * `oldestUnverifiedAt` is the thing to watch: the freshness sweep is
+ * oldest-verified-first, so if that timestamp stops advancing the sweep is not
+ * draining. Surfacing it here means "is the archive still trustworthy?" is
+ * answerable from a single unauthenticated request.
+ */
 export async function handleHealth(ctx: Ctx) {
   if (!ctx.db) {
-    const bundle = getCatalog();
     return {
       service: "outtake",
-      status: "ok",
-      mode: "static-fallback",
+      status: "degraded",
+      mode: "no-database",
       time: new Date().toISOString(),
-      artists: bundle.artists.length,
-      tracks: bundle.tracks.filter((t) => t.status === "active").length,
+      error: "DATABASE_URL is not set — the archive cannot be read.",
     };
   }
   try {
-    const artistCount = await ctx.db.select({ n: count() }).from(artists);
-    const canonical = await ctx.db.select({ n: count() }).from(songs);
+    const d = ctx.db;
+    const [artistCount, canonical, versions, oldest] = await Promise.all([
+      d.select({ n: count() }).from(artists),
+      d.select({ n: count() }).from(songs).where(eq(songs.status, "active")),
+      d.select({ n: count() }).from(songVersions).where(eq(songVersions.status, "active")),
+      d
+        .select({ at: sql<Date | null>`min(${songs.lastCheckedAt})` })
+        .from(songs)
+        .where(eq(songs.status, "active")),
+    ]);
+    const oldestAt = oldest[0]?.at ? new Date(oldest[0].at).toISOString() : null;
     return {
       service: "outtake",
       status: "ok",
       mode: "db",
       time: new Date().toISOString(),
-      artists: artistCount[0]?.n ?? 0,
-      tracks: canonical[0]?.n ?? 0,
+      artists: Number(artistCount[0]?.n ?? 0),
+      tracks: Number(canonical[0]?.n ?? 0),
+      versions: Number(versions[0]?.n ?? 0),
+      oldestUnverifiedAt: oldestAt,
+      oldestUnverifiedAgeHours: oldestAt
+        ? Math.round((Date.now() - new Date(oldestAt).getTime()) / 36e5)
+        : null,
     };
   } catch (err) {
     return { service: "outtake", status: "degraded", error: String(err) };
@@ -62,41 +83,18 @@ export async function handleHealth(ctx: Ctx) {
 }
 
 export async function handleArtists(ctx: Ctx) {
-  if (!ctx.db) {
-    return { artists: getCatalog().artists };
-  }
-  try {
-    const rows = await ctx.db
-      .select({
-        slug: artists.slug,
-        name: artists.name,
-        // tag drives the artist-page hero line; initials drive the avatar
-        // fallback. Both were being dropped here even though the columns exist.
-        tag: artists.tag,
-        initials: artists.initials,
-        avatarUrl: artists.avatarUrl,
-        bio: artists.bio,
-        trackCount: count(songs.id),
-      })
-      .from(artists)
-      .leftJoin(songs, eq(songs.artistId, artists.id))
-      .groupBy(artists.id)
-      .orderBy(asc(artists.name));
-    return {
-      artists: rows.map((r) => ({
-        slug: r.slug,
-        name: r.name,
-        tag: r.tag ?? null,
-        initials: r.initials ?? initialsOf(r.name),
-        avatarUrl: r.avatarUrl,
-        bio: r.bio,
-        trackCount: r.trackCount,
-      })),
-    };
-  } catch {
-    // DB set but momentarily unreachable — never 500 the public site.
-    return { artists: getCatalog().artists };
-  }
+  return { artists: await getArtists() };
+}
+
+/**
+ * The whole catalog, columnar, for the client queue and search.
+ *
+ * Fetched once per session on first play rather than embedded in page props — see
+ * components/vault/useCatalog.ts for the payload measurements.
+ */
+export async function handleQueueManifest(ctx: Ctx) {
+  if (!ctx.db) throw new ApiError(503, "database unavailable");
+  return getQueueManifest();
 }
 
 export async function handleSongs(ctx: Ctx, opts: { all?: boolean } = {}) {

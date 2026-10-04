@@ -11,15 +11,15 @@ interface SongClientProps {
   song: DeckSong;
   artistSongs: DeckSong[];
   queueKey: string;
+  /** Index of this song in the artist's track list, resolved server-side. */
+  position: number;
 }
 
-export default function SongClient({ song, artistSongs, queueKey }: SongClientProps) {
+export default function SongClient({ song, artistSongs, queueKey, position }: SongClientProps) {
   const player = usePlayer();
   const [copied, setCopied] = useState(false);
-  const pos = Math.max(
-    0,
-    artistSongs.findIndex((s) => s.songId === song.songId),
-  );
+  // Computed server-side and passed in, rather than re-derived here.
+  const pos = Math.max(0, position);
   const deckSong = player.song;
   const showing = deckSong?.songId === song.songId;
   const activeKey = showing ? player.srcKey : null;

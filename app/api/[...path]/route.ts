@@ -71,6 +71,24 @@ async function wrap(fn: () => Promise<unknown>) {
   }
 }
 
+/**
+ * `/api/manifest` is read once per client session on first play and then reused for
+ * every queue, search and favorites lookup. It replaces passing the entire catalog
+ * into client component props, which is what makes the home page 132 KB of HTML.
+ *
+ * Long CDN reuse is deliberate: a newly surfaced track reaches the artist page as
+ * soon as that page revalidates, and `stale-while-revalidate` means a cold cache
+ * never blocks a play. The payload carries a `v` schema version so a client can
+ * discard a shape it does not understand rather than mis-reading it.
+ */
+async function wrapCached(fn: () => Promise<unknown>) {
+  const res = await wrap(fn);
+  if (res.status === 200) {
+    res.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+  }
+  return res;
+}
+
 async function readJson(req: NextRequest): Promise<Record<string, unknown>> {
   try {
     return (await req.json()) ?? {};
@@ -102,6 +120,7 @@ export async function GET(
     if (isAdminPath(key) && !c.admin) throw new ApiError(401, "unauthorized");
 
     if (key === "health") return api.handleHealth(c);
+    if (key === "manifest") return wrapCached(() => api.handleQueueManifest(c));
     if (key === "artists") return api.handleArtists(c);
     if (key === "songs") {
       return api.handleSongs(c, { all: search.get("all") === "1" });

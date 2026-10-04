@@ -1,23 +1,25 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getCatalog, getSongsForArtist } from "@/lib/dataloader";
-import { toDeckSongs } from "@/lib/vault";
+
+import { getSongById, getSongsForArtist } from "@/lib/queries";
 import { fmtTime } from "@/lib/vault";
-import { youtubeWatchUrl } from "@/lib/utils";
-import VaultCover from "@/components/vault/VaultCover";
 import SongClient from "@/components/vault/SongClient";
+import VaultCover from "@/components/vault/VaultCover";
 
 export const revalidate = 3600;
-
-// Song pages render on demand (ISR): prerendering every song made build
-// time grow with the catalog, which breaks mass-shipping. First visit
-// renders from the bundle, then caches + revalidates hourly. The sitemap
-// still lists every song URL so crawlers trigger + cache the renders.
 export const dynamicParams = true;
 
-export function generateStaticParams(): Array<{ slug: string }> {
+/**
+ * Deliberately NOT in generateStaticParams.
+ *
+ * Prerendering 3,000 song pages made the build scale with the catalog (it was
+ * already ~10 minutes at 288). Instead the first visit renders and ISR-caches,
+ * and app/sitemap.ts lists every song URL so crawlers trigger the renders. Keep it
+ * that way — adding these paths back is the single easiest way to make the build
+ * unusable at scale.
+ */
+export async function generateStaticParams() {
   return [];
 }
 
@@ -27,76 +29,85 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const canonical = getCatalog().tracks.find((t) => t.songId === slug && !t.id.includes("__v"));
-  if (!canonical) return { title: "Track not found" };
+  const song = await getSongById(slug).catch(() => null);
+  if (!song) return { title: "Track not found" };
   return {
-    title: `${canonical.title} — ${canonical.artistName}`,
-    description: `Unreleased outtake by ${canonical.artistName} — machine-verified as playable.`,
-    openGraph: {
-      title: `${canonical.title} — ${canonical.artistName}`,
-      description: `Unreleased outtake — machine-verified as playable.`,
-      images: [`https://i.ytimg.com/vi/${canonical.youtubeId}/hqdefault.jpg`],
-    },
+    title: `${song.title} — ${song.artistName}`,
+    description: `An unreleased outtake by ${song.artistName}, machine-verified as playable from a public upload. ${song.sources.length > 1 ? `Includes ${song.sources.length - 1} alternate take${song.sources.length === 2 ? "" : "s"}.` : ""} Not hosted here — we link out.`,
   };
 }
 
-export default async function SongPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SongPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
-  const catalog = getCatalog();
-  const canonical = catalog.tracks.find((t) => t.songId === slug && !t.id.includes("__v"));
-  if (!canonical || canonical.status !== "active") notFound();
-
-  const artistTracks = getSongsForArtist(canonical.artistSlug);
-  const artistCanonicals = artistTracks.filter((t) => !t.id.includes("__v") && t.status === "active");
-  const artistSongs = toDeckSongs(artistCanonicals, artistTracks);
-  const song = artistSongs.find((s) => s.songId === slug);
+  const song = await getSongById(slug).catch(() => null);
   if (!song) notFound();
 
-  const queueKey = `artist:${canonical.artistSlug}`;
-  const dur = song.durationSec ?? 0;
+  const artistTracks = await getSongsForArtist(song.artistSlug);
+  const position = artistTracks.findIndex((s) => s.songId === song.songId);
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MusicRecording",
     name: song.title,
     byArtist: { "@type": "MusicGroup", name: song.artistName },
-    url: youtubeWatchUrl(song.youtubeId),
-    duration: `PT${Math.floor(dur / 60)}M${Math.floor(dur % 60)}S`,
+    durationSec: song.durationSec ?? undefined,
+    url: `https://www.youtube.com/watch?v=${song.youtubeId}`,
+    isFamilyFriendly: false,
   };
 
   return (
     <>
-      <div>
-        <Link href={`/artist/${song.artistSlug}`} className="back-to-home-btn">
-          <ArrowLeft size={14} strokeWidth={1.75} />
-          <span>Back to {song.artistName}</span>
-        </Link>
+      <a href={`/artist/${song.artistSlug}`} className="back-to-home-btn">
+        <ArrowLeft size={14} strokeWidth={1.75} />
+        Back to {song.artistName}
+      </a>
 
-        <div className="detail-grid">
-          <div className="detail-cover">
-            <VaultCover id={song.songId} title={song.title} artistSlug={song.artistSlug} artistName={song.artistName} />
+      <div className="detail-grid">
+        <div className="detail-cover">
+          <VaultCover
+            id={song.songId}
+            title={song.title}
+            artistSlug={song.artistSlug}
+            artistName={song.artistName}
+          />
+        </div>
+        <div>
+          <h1 className="detail-title pixel-text">{song.title}</h1>
+          <div className="detail-sub">
+            <a href={`/artist/${song.artistSlug}`}>{song.artistName}</a>
+            {" · "}
+            {fmtTime(song.durationSec)}
+            {song.sources.length > 1 ? ` · ${song.sources.length} takes` : ""}
           </div>
-          <div>
-            <h1 className="detail-title pixel-text">{song.title}</h1>
-            <p className="detail-sub">
-              <Link href={`/artist/${song.artistSlug}`}>{song.artistName}</Link>
-              {" · "}
-              {fmtTime(song.durationSec)}
-              {song.sources.length > 1 ? ` · ${song.sources.length} versions` : ""}
-            </p>
-            <SongClient song={song} artistSongs={artistSongs} queueKey={queueKey} />
-            <p className="detail-note">
-              Every outtake is machine-verified as playable before it ships — and re-checked
-              daily. Dead links are caught and re-verified automatically.
-            </p>
-            <p className="detail-source">
-              Verified playable ·{" "}
-              <a href={youtubeWatchUrl(song.youtubeId)} target="_blank" rel="noopener noreferrer">
-                source on YouTube
-              </a>
-            </p>
-          </div>
+
+          <SongClient
+            song={song}
+            artistSongs={artistTracks}
+            queueKey={`artist:${song.artistSlug}`}
+            position={position}
+          />
+
+          <p className="detail-note">
+            This recording is not hosted here. The link points to a public YouTube upload and
+            was machine-verified as playable within the last day. If it has stopped working,
+            it will be re-checked on the next sweep.
+          </p>
+
+          <a
+            className="detail-source"
+            href={`https://www.youtube.com/watch?v=${song.youtubeId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open the original upload on YouTube ↗
+          </a>
         </div>
       </div>
+
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
     </>
   );
