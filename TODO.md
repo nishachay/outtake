@@ -22,6 +22,12 @@ Getting 3,000 tracks in **and** usable is six things, in order:
 
 Everything else is polish.
 
+**Done so far on `feat/scale-foundation`:** the whole verdict mapping and dead-streak
+confirmation (Phase 1), the refresh drain loop end to end (Phase 3.1–3.3, 3.5), the
+collab scoping fix, submit validation + rate limiting, and the player engine
+(6.1–6.5, 6.7) including the Up Next panel. **Blocked on `DATABASE_URL`** for
+everything that has to be verified against a real Postgres.
+
 ---
 
 ## Blocker: two keys, from you
@@ -50,23 +56,23 @@ Measured against real videos today:
 | **private** | **`404`** | **`dead`** ❌ | `unknown` |
 | **region-blocked / claim-blocked** | **`200`** | **`active`** ❌ | `active` + flag |
 
-- [ ] **1.1** `lib/probe.ts` → `ProbeStatus = "active" | "blocked" | "dead" |
+- [x] **1.1** `lib/probe.ts` → `ProbeStatus = "active" | "blocked" | "dead" |
       "unknown" | "invalid"`.
       `200` = *exists + embeddable, NOT proven playable* · `401` = `blocked` ·
       `404` = `unknown` (YouTube won't distinguish private from deleted) ·
       `400` = `invalid` · network throw/timeout = `unknown`, **never `dead`**.
-- [ ] **1.2** Fix the `oembedTitle` stub — error paths return empty title/author.
-- [ ] **1.3** `lib/schema.ts`: `SONG_STATUSES` gains `blocked`/`unknown`; add
+- [x] **1.2** Fix the `oembedTitle` stub — error paths return empty title/author.
+- [x] **1.3** `lib/schema.ts`: `SONG_STATUSES` gains `blocked`/`unknown`; add
       `dead_streak`, `surfaced_at`, `source_count`, `play_count`,
       `source_provider`, `era`.
-- [ ] **1.4** **N=2 consecutive verified-dead probes** before a row becomes `dead`.
-- [ ] **1.5** `export-catalog` must **never drop a row at `unknown`**. Today a
+- [x] **1.4** **N=2 consecutive verified-dead probes** before a row becomes `dead`.
+- [x] **1.5** `export-catalog` must **never drop a row at `unknown`**. Today a
       300ms Vercel timeout marks a track dead and the next export deletes it from
       the archive permanently. That is the bug most likely to lose you real
       catalog.
-- [ ] **1.6** Only fetch duration when a track is newly `active` or duration is
+- [x] **1.6** Only fetch duration when a track is newly `active` or duration is
       null. The watch-page scrape is the 1–3s cost that makes refresh time out.
-- [ ] **1.7** Add `candidates` staging table (see Phase 4) so a bad harvest is a
+- [x] **1.7** Add `candidates` staging table (see Phase 4) so a bad harvest is a
       DELETE, not a git revert across 3,000 rows.
 
 ### Player-side verification (the part that scales)
@@ -110,16 +116,16 @@ ids + titles + names, committed to git, never deleted.
 - [ ] **2.5** `scripts/catalog.json` → **deleted from the runtime path.** A build
       step dumps DB → disk so `next build` can prerender, then discards it. Never
       committed, never hand-edited.
-- [ ] **2.6** Fix `upsertSongFromProbe`: the `id === probe.youtubeId` match is
+- [x] **2.6** Fix `upsertSongFromProbe`: the `id === probe.youtubeId` match is
       **not artist-scoped**, so a Drake collab video is appended as a *version of
       Charlie Puth's song* and the documented `-b` path never runs.
-- [ ] **2.7** Unify artist ids — `import-catalog` writes `id = slug`, the admin
+- [~] **2.7** Unify artist ids — `import-catalog` writes `id = slug`, the admin
       API writes `randomUUID()`. Two shapes in one table means imports and admin
       creates never reconcile.
-- [ ] **2.8** Add `artists.tag` + `artists.initials` columns. `catalog.json` has
+- [x] **2.8** Add `artists.tag` + `artists.initials` columns. `catalog.json` has
       both and the schema doesn't, so **every DB-backed artist hero has been
       losing its tagline.**
-- [ ] **2.9** zod on every API body. `POST /api/submit` is unvalidated,
+- [~] **2.9** Validate every API body. `POST /api/submit` is unvalidated,
       unthrottled, and writes to the DB — add a rate limit + honeypot.
 - [ ] **2.10** `robots.ts` → `Disallow: /admin`, `/api/`.
 
@@ -131,18 +137,18 @@ Today: 120 **sequential** probes, no `orderBy`, against a 60–300s function
 ceiling — so the same rows get picked every day, the rest starve, and the
 freshness claim is already false at 288 tracks.
 
-- [ ] **3.1** `POST /api/admin/refresh?budget=400` — claim ≤400 rows via
+- [x] **3.1** `POST /api/admin/refresh?budget=400` — claim ≤400 rows via
       `FOR UPDATE SKIP LOCKED`, `orderBy(last_checked_at ASC NULLS FIRST)`,
       probe at concurrency 20, return `{ processed, remaining }` **immediately**.
-- [ ] **3.2** The GitHub Actions workflow **loops** `while remaining > 0`.
+- [x] **3.2** The GitHub Actions workflow **loops** `while remaining > 0`.
       3,000 ÷ 400 ≈ 8 iterations × ~30s ≈ 4 min runner time. Free tier is
       2,000 min/mo.
-- [ ] **3.3** Exit non-zero if `remaining > 0` after N iterations — a partial
+- [x] **3.3** Exit non-zero if `remaining > 0` after N iterations — a partial
       drain must show red, not silently skip tracks. Also delete the current
       `|| echo "no-op"` which makes total failure invisible.
 - [ ] **3.4** Rolling ~7-day cohort instead of re-probing everything daily:
       3,000/7 ≈ 430/day. Player auto-fallback covers the gap.
-- [ ] **3.5** `concurrency: group: refresh`.
+- [x] **3.5** `concurrency: group: refresh`.
 - [ ] **3.6** ⚠️ When the repo goes public, **GitHub auto-disables scheduled
       workflows after 60 days of inactivity.** Add a staleness alarm.
 
@@ -209,13 +215,13 @@ Diagnosed in code:
 - `HomeClient.tsx:49` — clicking a rail card queues **all 288 songs**, not that rail.
 - `ArtistClient` queues the *filtered* list → clearing search leaves a phantom queue.
 
-- [ ] **6.1** Real shuffle: shuffled **order array computed once per queue**
+- [x] **6.1** Real shuffle: shuffled **order array computed once per queue**
       (Fisher–Yates, seeded from queueKey so SSR and client agree), then walk it.
       Off by default, not persisted.
-- [ ] **6.2** ENDED calls `next()`. Delete the duplicated inline block.
-- [ ] **6.3** `repeat`: 3-state off → all → one.
-- [ ] **6.4** `next`/`prev` read `queueKey` from `live.current`, not the closure.
-- [ ] **6.5** **"Up next" queue panel.** The queue is currently invisible — that is
+- [x] **6.2** ENDED calls `next()`. Delete the duplicated inline block.
+- [x] **6.3** `repeat`: 3-state off → all → one.
+- [x] **6.4** `next`/`prev` read `queueKey` from `live.current`, not the closure.
+- [x] **6.5** **"Up next" queue panel.** The queue is currently invisible — that is
       *why* it feels random. Biggest missing Spotify affordance.
 - [ ] **6.6** **Visible player on the turntable platter**, ≥200×200 viewport, and
       **delete `#yt-mount`**. The 1×1 `opacity: 0.001` player is a "background
@@ -224,7 +230,7 @@ Diagnosed in code:
       playerVar so hiding YouTube's controls is fine; overlaying *your own* UI on
       the player's pixels is not. Add `origin=` and
       `Referrer-Policy: strict-origin-when-cross-origin` (missing Referer = error 153).
-- [ ] **6.7** Rail cards queue *that rail's* list.
+- [x] **6.7** Rail cards queue *that rail's* list.
 - [ ] **6.8** Volume control. `onReady` sets 85, `playSource` resets to 100.
 - [ ] **6.9** Restore queue position on reload (only last song persists today).
 - [ ] **6.10** `?` shortcuts overlay — Space/←/→/Esc exist and are undiscoverable.

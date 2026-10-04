@@ -29,12 +29,19 @@ export default function ArtistsAdminPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), avatarUrl: avatarUrl.trim(), bio: bio.trim() }),
       });
-      const data = (await res.json()) as { ok?: boolean; artist?: StreamedArtist; error?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        artist?: StreamedArtist;
+        created?: boolean;
+        error?: string;
+      };
       if (res.ok && data.ok) {
         setMsg({
           ok: true,
-          text: data.artist?.existing
-            ? `"${data.artist.name}" already existed.`
+          // The handler returns `created`; it never set an `existing` flag, so
+          // this branch used to always report "Created" even for a no-op.
+          text: data.created === false
+            ? `"${data.artist?.name}" already existed.`
             : `Created "${data.artist?.name}".`,
         });
         setName("");

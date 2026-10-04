@@ -131,15 +131,18 @@ Present on this branch. Do not assume they are fixed.
 
 | Bug | Where |
 |---|---|
-| Collab videos attach to the wrong artist — `eq(s.id, probe.youtubeId)` is **not artist-scoped**, so a Drake video gets appended as a version of Charlie Puth's song and the `-b` copy path at `:581` never runs | `lib/api-core.ts:551` |
-| Shuffle is a fresh dice roll per skip (`Math.floor(Math.random() * q.length)`), so it can replay a track or go backwards. Also duplicated: the ENDED handler inlines `playQueue` logic instead of calling `next()`, and the two have drifted | `components/shell/player-context.tsx:231`, `:334` |
-| `PlayerProvider` polls `setCur` every 250 ms at the context root, so **every** `usePlayer()` consumer re-renders 4×/sec — including all 97 `TrackRow`s on an artist page | `player-context.tsx:462` |
-| Refs mutated during render (`live.current = …`, `toggleRef.current = …`) — unsupported under concurrent rendering | `player-context.tsx:125`, `:522-526` |
-| `localStorage` written inside state updater functions — works only because it's idempotent under StrictMode double-invoke | `player-context.tsx:291`, `:268` |
-| `document.title` overwritten and never restored, so it leaks across route transitions | `player-context.tsx:552` |
-| `ArtistsForm` reads `data.artist.existing`; the handler returns `created`. Success message is always wrong | `components/admin/ArtistsForm.tsx:36` |
-| No `orderBy` on the refresh query, so the same rows are re-probed forever and the rest starve | `lib/api-core.ts:407` |
-| `/api/admin/refresh` is not yet cursor-batched — still ~120 sequential probes against a function timeout. `TODO.md` phase 3 | `lib/api-core.ts` |
+| `PlayerProvider` polls `setCur` every 250 ms at the context root, so **every** `usePlayer()` consumer re-renders 4×/sec — including all 97 `TrackRow`s on an artist page. Fix: split into 4 contexts so only the scrubber subscribes to `cur`/`tot` | `player-context.tsx` |
+| `ArtistClient` queues the *filtered* list, so clearing the search mid-track leaves a phantom filtered queue | `components/vault/ArtistClient.tsx` |
+| "Up next" is read-only — no reorder or remove yet | `components/shell/PlayerSidebar.tsx` |
+| `/api/submit` rate limiting is per-instance, so concurrent function instances each keep their own window. Fine against casual spam, not an abuse-prevention system of record | `app/api/[...path]/route.ts` |
+| `getCatalog()` still loads the whole catalog with no memoization. Replaced by `lib/queries.ts` when Postgres becomes the read path | `lib/dataloader.ts` |
+| `artists.id` is now written as the slug by the admin API, but rows created before that carry a UUID — needs a one-off backfill | `lib/api-core.ts` |
+
+Fixed on this branch. Do not reintroduce: the inverted oEmbed verdict mapping, the
+shuffle dice-roll, the duplicated ENDED handler, the unscoped collab id match,
+render-phase ref mutation, `localStorage` writes inside state updaters, the
+unbounded sequential refresh, the export rule that dropped merely-unplayable rows,
+and the artist `tag`/`initials` import loss.
 
 ## Architecture
 

@@ -8,6 +8,41 @@ import { getDb } from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Per-instance fixed-window rate limit for the unauthenticated write endpoints.
+ *
+ * Deliberately in-memory and per-instance: this is one serverless function, so
+ * the limit is approximate across concurrent instances rather than exact. That
+ * is the right trade here — it stops the trivial submit-loop/spam case without
+ * adding a Redis dependency or a network round-trip to the hot path. Do not treat
+ * it as an abuse-prevention system of record.
+ *
+ * Admin requests bypass it: CI refreshes call in bursts by design.
+ */
+const RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  submit: { max: 5, windowMs: 60_000 },
+  verify: { max: 30, windowMs: 60_000 },
+};
+const hits = new Map<string, { count: number; resetAt: number }>();
+
+function rateLimited(bucket: string): boolean {
+  const limit = RATE_LIMITS[bucket];
+  if (!limit) return false;
+  const now = Date.now();
+  const entry = hits.get(bucket);
+  if (!entry || entry.resetAt <= now) {
+    hits.set(bucket, { count: 1, resetAt: now + limit.windowMs });
+    return false;
+  }
+  entry.count++;
+  // Opportunistic cleanup so the map cannot grow unbounded on a long-lived
+  // instance.
+  if (hits.size > 500) {
+    for (const [k, v] of hits) if (v.resetAt <= now) hits.delete(k);
+  }
+  return entry.count > limit.max;
+}
+
 function isAdmin(req: NextRequest): Promise<boolean> {
   return (async () => {
     const bearer = req.headers.get("authorization");
@@ -72,6 +107,7 @@ export async function GET(
       return api.handleSongs(c, { all: search.get("all") === "1" });
     }
     if (key === "admin/verify") {
+      if (!c.admin && rateLimited("verify")) throw new ApiError(429, "too many requests");
       return api.handleAdminVerify(c, search.get("url") ?? "");
     }
     if (key === "admin/pending") {
@@ -105,7 +141,8 @@ export async function POST(
       return api.handleReport();
     }
     if (key === "submit") {
-      return api.handleSubmit(c, body as Parameters<typeof api.handleSubmit>[1]);
+      if (rateLimited("submit")) throw new ApiError(429, "too many submissions — try again shortly");
+      return api.handleSubmit(c, body);
     }
     if (key === "admin/approve") {
       return api.handleAdminApprove(c, body as Parameters<typeof api.handleAdminApprove>[1]);

@@ -158,12 +158,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // localStorage after mount — so the first client render matches the
   // server HTML exactly (no hydration mismatch from resume/likes).
   const [likedIds, setLikedIds] = useState<string[]>([]);
-  const [versionPrefs, setVersionPrefs] = useState<Record<string, string>>({});
+  // Ref, not state: only ever read synchronously inside event handlers, and
+  // exposing it through context re-rendered every consumer for no reason.
+  const versionPrefsRef = useRef<Record<string, string>>({});
   const [lastSong, setLastSong] = useState<DeckSong | null>(null);
 
   useEffect(() => {
     setLikedIds(readJson<string[]>(LIKES_KEY, []));
-    setVersionPrefs(readJson<Record<string, string>>(VERSION_KEY, {}));
+    versionPrefsRef.current = readJson<Record<string, string>>(VERSION_KEY, {});
     setLastSong(readJson<DeckSong | null>(LAST_KEY, null));
   }, []);
 
@@ -195,14 +197,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const source: VersionSource | null =
     song?.sources.find((s) => s.key === srcKey) ?? song?.sources[0] ?? null;
 
-  const preferredKey = useCallback(
-    (s: DeckSong): string => {
-      const saved = versionPrefs[s.songId];
-      if (saved && s.sources.some((x) => x.key === saved)) return saved;
-      return s.sources[0]?.key ?? "canonical";
-    },
-    [versionPrefs],
-  );
+  /** Remember which take of a song the listener last chose. */
+  const rememberVersion = useCallback((songId: string, key: string) => {
+    const prev = versionPrefsRef.current;
+    if (prev[songId] === key) return;
+    versionPrefsRef.current = { ...prev, [songId]: key };
+    try {
+      localStorage.setItem(VERSION_KEY, JSON.stringify(versionPrefsRef.current));
+    } catch {
+      /* private mode / quota */
+    }
+  }, []);
 
   const playSource = useCallback((vid: string | null) => {
     const p = ytRef.current;
@@ -225,10 +230,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         forceSrcKey && s.sources.some((x) => x.key === forceSrcKey)
           ? forceSrcKey
           : (() => {
-              const saved = readJson<Record<string, string>>(VERSION_KEY, {});
-              if (saved[s.songId] && s.sources.some((x) => x.key === saved[s.songId])) {
-                return saved[s.songId];
-              }
+              const saved = versionPrefsRef.current[s.songId];
+              if (saved && s.sources.some((x) => x.key === saved)) return saved;
               return s.sources[0]?.key ?? "canonical";
             })();
 
@@ -250,9 +253,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setQueueKey(nextKey);
       setIndex(nextIndex);
       setSrcKey(key);
-      setVersionPrefs((prev) =>
-        prev[s.songId] === key ? prev : { ...prev, [s.songId]: key },
-      );
+      rememberVersion(s.songId, key);
       setCur(0);
       setTot(s.durationSec ?? 0);
       setPlaying(true);
@@ -260,19 +261,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const src = s.sources.find((x) => x.key === key) ?? s.sources[0];
       playSource(src?.vid ?? s.youtubeId);
     },
-    [playSource, commitOrder],
+    [playSource, commitOrder, rememberVersion],
   );
-
-  // Persist version preferences in an effect. Writing localStorage inside a
-  // state updater only works because it is idempotent under StrictMode's
-  // double-invoke; it is not a supported place for side effects.
-  useEffect(() => {
-    try {
-      localStorage.setItem(VERSION_KEY, JSON.stringify(versionPrefs));
-    } catch {
-      /* private mode / quota */
-    }
-  }, [versionPrefs]);
 
   // Same for likes.
   useEffect(() => {
@@ -443,19 +433,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const src = s.sources.find((x) => x.key === key);
       if (!src) return;
       setSrcKey(key);
-      setVersionPrefs((prev) => {
-        const nextPrefs = { ...prev, [s.songId]: key };
-        try {
-          localStorage.setItem(VERSION_KEY, JSON.stringify(nextPrefs));
-        } catch {
-          /* ignore */
-        }
-        return nextPrefs;
-      });
+      rememberVersion(s.songId, key);
       setPlaying(true);
       playSource(src.vid);
     },
-    [song, playSource],
+    [song, playSource, rememberVersion],
   );
 
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);

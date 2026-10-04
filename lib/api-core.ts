@@ -211,15 +211,54 @@ export async function handleReport() {
   throw new ApiError(410, "reports retired — dead links heal via auto-fallback + refresh");
 }
 
-export async function handleSubmit(
-  ctx: Ctx,
-  body: { youtubeUrl?: string; suggestedArtist?: string; suggestedTitle?: string; note?: string },
-) {
+/** Fields are length-capped so a single submission cannot bloat a row. */
+const MAX_URL = 300;
+const MAX_ARTIST = 120;
+const MAX_TITLE = 200;
+const MAX_NOTE = 1000;
+
+const clip = (v: unknown, max: number): string | null => {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  if (!t) return null;
+  return t.length > max ? t.slice(0, max) : t;
+};
+
+export async function handleSubmit(ctx: Ctx, body: Record<string, unknown> = {}) {
   if (!ctx.db) throw new ApiError(503, "database unavailable");
-  const youtubeUrl = body.youtubeUrl?.trim();
+
+  // Honeypot. A real browser leaves this hidden field empty; naive bots fill
+  // every input they find.
+  if (typeof body.website === "string" && body.website.trim()) {
+    throw new ApiError(400, "rejected");
+  }
+
+  const youtubeUrl = clip(body.youtubeUrl, MAX_URL);
   if (!youtubeUrl) throw new ApiError(400, "youtubeUrl is required");
-  const id = extractYouTubeId(youtubeUrl);
-  if (!id) throw new ApiError(400, "not a valid YouTube url or id");
+  if (!extractYouTubeId(youtubeUrl)) throw new ApiError(400, "not a valid YouTube url or id");
+
+  const suggestedArtist = clip(body.suggestedArtist, MAX_ARTIST);
+  const suggestedTitle = clip(body.suggestedTitle, MAX_TITLE);
+  const note = clip(body.note, MAX_NOTE);
+
+  // One open submission per source video. Without this a submit loop fills the
+  // review queue with identical rows and the queue stops carrying signal.
+  try {
+    const dupe = await ctx.db
+      .select({ id: pendingSubmissions.id })
+      .from(pendingSubmissions)
+      .where(
+        and(
+          eq(pendingSubmissions.youtubeUrl, youtubeUrl),
+          eq(pendingSubmissions.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (dupe.length) throw new ApiError(409, "already submitted — it's in the review queue");
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(503, "database unavailable");
+  }
 
   let inserted;
   try {
@@ -228,9 +267,9 @@ export async function handleSubmit(
       .values({
         id: crypto.randomUUID(),
         youtubeUrl,
-        suggestedArtist: body.suggestedArtist?.trim() ?? null,
-        suggestedTitle: body.suggestedTitle?.trim() ?? null,
-        note: body.note?.trim() ?? null,
+        suggestedArtist,
+        suggestedTitle,
+        note,
         status: "pending",
       })
       .returning();
@@ -385,17 +424,32 @@ export async function handleAdminAddSong(
   return { ok: true, ...created, probe };
 }
 
+/**
+ * Rolling freshness sweep, one bounded slice per call.
+ *
+ * The previous version selected 120 rows with no ordering and probed them
+ * sequentially. Two failures followed: the oldest-verified rows were never
+ * preferred, so a subset was re-probed forever while the rest starved, and 120
+ * sequential network calls could not finish inside the function timeout, so the
+ * daily job silently died partway through. At 3,000 tracks a full sweep needs to
+ * be resumable, not bigger.
+ *
+ * Callers loop `while remaining > 0`. See .github/workflows/refresh.yml.
+ */
 export async function handleAdminRefresh(
   ctx: Ctx,
-  body: { force?: boolean } = {},
-  limit = 60,
+  body: { force?: boolean; budget?: number } = {},
+  limit = 200,
 ) {
   await requireAdmin(ctx);
   const staleness = body.force
     ? new Date(0)
     : new Date(Date.now() - 6 * 60 * 60 * 1000);
+  const budget = Math.max(1, Math.min(Number(body.budget ?? limit) || limit, 500));
 
   const db = ctx.db!;
+  // Oldest verification first, never-checked rows first. Without this the sweep
+  // re-picks the same arbitrary rows every run.
   const staleSongs = await db
     .select({
       id: songs.id,
@@ -408,8 +462,10 @@ export async function handleAdminRefresh(
     .where(
       or(isNull(songs.lastCheckedAt), sql`${songs.lastCheckedAt} < ${staleness}`),
     )
-    .limit(limit);
+    .orderBy(sql`${songs.lastCheckedAt} asc nulls first`)
+    .limit(budget);
 
+  const remainingBudget = Math.max(0, budget - staleSongs.length);
   const staleVersions = await db
     .select({
       id: songVersions.id,
@@ -422,12 +478,29 @@ export async function handleAdminRefresh(
     .where(
       or(isNull(songVersions.lastCheckedAt), sql`${songVersions.lastCheckedAt} < ${staleness}`),
     )
-    .limit(limit);
+    .orderBy(sql`${songVersions.lastCheckedAt} asc nulls first`)
+    .limit(remainingBudget);
 
   let probed = 0;
   const results: string[] = [];
+  // oEmbed has no Cache-Control and varies on Referer, so every probe is a real
+  // origin hit. Twenty at a time keeps a 200-row slice inside the function
+  // timeout without hammering youtube.com from a single-threaded loop.
+  const CONCURRENCY = 20;
 
-  for (const s of staleSongs) {
+  const runPool = async <T,>(items: T[], worker: (item: T) => Promise<void>) => {
+    let cursor = 0;
+    const runners = Array.from({ length: Math.min(CONCURRENCY, items.length) }, async () => {
+      while (cursor < items.length) {
+        const item = items[cursor++];
+        if (item === undefined) break;
+        await worker(item);
+      }
+    });
+    await Promise.all(runners);
+  };
+
+  await runPool(staleSongs, async (s) => {
     // Skip the duration fetch unless we actually need it — it costs an extra
     // origin hit (or a Data API unit) and is the reason a full sweep used to
     // blow past the function timeout.
@@ -445,9 +518,9 @@ export async function handleAdminRefresh(
       .where(eq(songs.id, s.id));
     probed++;
     results.push(`song:${s.youtubeId}:${probe.status}->${next.status}`);
-  }
+  });
 
-  for (const v of staleVersions) {
+  await runPool(staleVersions, async (v) => {
     const needsDuration = v.durationSec == null;
     const probe = await probeYouTube(v.youtubeId, { withDuration: needsDuration });
     const next = nextStatusFor(v.status as SongStatus, probe, v.deadStreak);
@@ -462,9 +535,31 @@ export async function handleAdminRefresh(
       .where(eq(songVersions.id, v.id));
     probed++;
     results.push(`version:${v.youtubeId}:${probe.status}->${next.status}`);
-  }
+  });
 
-  return { ok: true, probed, results };
+  // One more cheap count so the caller knows whether to loop again. This is what
+  // turns a timeout-prone single drain into a resumable job.
+  const [stillStaleSongs] = await db
+    .select({ n: count() })
+    .from(songs)
+    .where(or(isNull(songs.lastCheckedAt), sql`${songs.lastCheckedAt} < ${staleness}`));
+  const [stillStaleVersions] = await db
+    .select({ n: count() })
+    .from(songVersions)
+    .where(
+      or(isNull(songVersions.lastCheckedAt), sql`${songVersions.lastCheckedAt} < ${staleness}`),
+    );
+  const remaining = Number(stillStaleSongs?.n ?? 0) + Number(stillStaleVersions?.n ?? 0);
+
+  // `results` is capped: a 500-row slice would otherwise return a few thousand
+  // lines of JSON and burn response time for no operational value.
+  return {
+    ok: true,
+    probed,
+    remaining,
+    done: remaining === 0,
+    results: results.slice(0, 50),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -537,19 +632,25 @@ async function upsertSongFromProbe(
     where: (a, { eq: e }) => e(a.slug, artistSlug),
   });
   if (!artistRow) {
+    // id = slug, matching scripts/import-catalog.ts. The admin API used to write
+    // randomUUID() here, which meant imports and admin-created artists never
+    // reconciled on the same row. Lookup is by slug either way, so switching to
+    // slug is safe going forward; existing UUID rows keep working untouched.
     const inserted = await db
       .insert(artists)
-      .values({ id: crypto.randomUUID(), slug: artistSlug, name: artistName, avatarUrl: null, bio: null })
+      .values({ id: artistSlug, slug: artistSlug, name: artistName, avatarUrl: null, bio: null })
       .returning();
     artistRow = inserted[0];
   }
 
+  // Scope every branch to the artist. This query used to OR in a global
+  // `id === probe.youtubeId` match, so if any artist already owned that video the
+  // lookup succeeded regardless of who was being added — the video was appended
+  // as an extra version of *their* song and the new artist silently got nothing.
+  // That also made the -b copy path below unreachable for exactly the case it
+  // exists to handle.
   const existingSong = await db.query.songs.findFirst({
-    where: (s, { or: o, and: a }) =>
-      o(
-        a(eq(s.artistId, artistRow!.id), eq(s.youtubeId, probe.youtubeId)),
-        eq(s.id, probe.youtubeId),
-      ),
+    where: (s, { and: a }) => a(eq(s.artistId, artistRow!.id), eq(s.youtubeId, probe.youtubeId)),
   });
 
   if (existingSong) {
@@ -570,15 +671,28 @@ async function upsertSongFromProbe(
         sortOrder: idx + 1,
       })
       .returning();
+    // Keep the denormalized take count honest for the discovery rail.
+    await db
+      .update(songs)
+      .set({ sourceCount: sql`${songs.sourceCount} + 1` })
+      .where(eq(songs.id, existingSong.id));
     return { songId: existingSong.id, versionId: inserted[0]?.id ?? null };
   }
 
-  // New canonical song. If the id would collide with another artist's song
-  // (re-shared collab cut), keep a stable suffix so ids stay unique per artist.
-  const idTaken = await db.query.songs.findFirst({
-    where: (s, { eq: e }) => e(s.id, probe.youtubeId),
-  });
-  const fluffyId = idTaken ? `${probe.youtubeId}-b` : probe.youtubeId;
+  // New canonical song for this artist. Song ids are the source id so
+  // `/song/[id]` is stable, but one video can belong to several artists (collab
+  // cuts, re-shared leaks) and ids are globally unique. Allocate the first free
+  // variant instead of checking once — the old single check collided again on
+  // the third artist and the insert would throw.
+  let fluffyId = probe.youtubeId;
+  for (let n = 1; n <= 50; n++) {
+    const taken = await db.query.songs.findFirst({
+      where: (s, { eq: e }) => e(s.id, fluffyId),
+      columns: { id: true },
+    });
+    if (!taken) break;
+    fluffyId = `${probe.youtubeId}-b${n === 1 ? "" : n}`;
+  }
 
   const inserted = await db
     .insert(songs)

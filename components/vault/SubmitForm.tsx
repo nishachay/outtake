@@ -9,6 +9,8 @@ export default function SubmitForm() {
   const [artist, setArtist] = useState("");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  // Honeypot: hidden from people, irresistible to bots. Never sent by a browser.
+  const [trap, setTrap] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
 
@@ -26,6 +28,7 @@ export default function SubmitForm() {
           suggestedArtist: artist.trim() || undefined,
           suggestedTitle: title.trim() || undefined,
           note: note.trim() || undefined,
+          website: trap,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -48,6 +51,21 @@ export default function SubmitForm() {
 
   return (
     <form className="vault-form" onSubmit={submit}>
+      {/* Honeypot. aria-hidden + tabIndex -1 + autocomplete off keeps it out of
+          the accessibility tree and out of keyboard navigation; a screen reader
+          still ignores an aria-hidden subtree, and real users never see it. */}
+      <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", height: 0, overflow: "hidden" }}>
+        <label htmlFor="sf-website">Website</label>
+        <input
+          id="sf-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={trap}
+          onChange={(e) => setTrap(e.target.value)}
+        />
+      </div>
       <div className="vault-field">
         <label htmlFor="outtake-url">YouTube link</label>
         <input

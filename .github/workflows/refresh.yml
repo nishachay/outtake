@@ -1,7 +1,7 @@
 name: daily-refresh
 on:
   schedule:
-    # 04:17 UTC daily — re-probe stale tracks + versions
+    # 04:17 UTC daily — rolling re-verification sweep
     - cron: "17 4 * * *"
   workflow_dispatch:
 
@@ -12,6 +12,8 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    # Kill stray next/node so a cached route can never serve old data.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -25,25 +27,65 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Verify: never let the site ship knowing a track died. Re-import catalog,
-      # then run the admin refresh to re-probe stale videos.
+      # Never let the site ship knowing a track died. Re-import the bundle,
+      # then drain the verification queue in bounded slices.
       - name: Import catalog
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npm run db:import
 
-      - name: Probe stale videos
+      # The endpoint handles one bounded slice per call and reports what is left,
+      # so a 3,000-track catalog can drain across invocations instead of timing
+      # out inside a single serverless request. See lib/api-core.ts
+      # handleAdminRefresh.
+      - name: Verify stale videos
         shell: bash
         env:
           PROD_URL: ${{ secrets.PROD_URL }}
           ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
         run: |
-          curl -sf -X POST "$PROD_URL/api/admin/refresh" \
-            -H "Authorization: Bearer $ADMIN_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{"force":false}' \
-            || echo "refresh endpoint unavailable (secrets unset?) — no-op"
+          set -euo pipefail
 
-      - name: Report result
-        if: always()
-        run: echo "Daily freshness pass complete."
+          if [ -z "${PROD_URL:-}" ] || [ -z "${ADMIN_KEY:-}" ]; then
+            echo "::warning::PROD_URL or ADMIN_KEY is not set — freshness sweep skipped."
+            echo "The archive is NOT being re-verified. Set both secrets."
+            exit 1
+          fi
+
+          total=0
+          for i in $(seq 1 40); do
+            body=$(curl -sf -X POST "$PROD_URL/api/admin/refresh" \
+              -H "Authorization: Bearer $ADMIN_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"force":false,"budget":400}' \
+              --max-time 300) || {
+                echo "::error::slice $i failed"
+                exit 1
+              }
+
+            probed=$(printf '%s' "$body" | grep -o '"probed":[0-9]*' | cut -d: -f2)
+            remaining=$(printf '%s' "$body" | grep -o '"remaining":[0-9]*' | cut -d: -f2)
+            probed=${probed:-0}
+            remaining=${remaining:-0}
+            total=$(( total + probed ))
+            echo "slice $i: probed=$probed remaining=$remaining"
+
+            if [ "$remaining" -eq 0 ]; then
+              echo "Drained $total rows in $i slice(s)."
+              # Guarded: `set -u` plus an unset GITHUB_STEP_SUMMARY aborts the
+              # step, and the drain has already succeeded by this point.
+              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                echo "| verification sweep |" >> "$GITHUB_STEP_SUMMARY"
+                echo "| --- |" >> "$GITHUB_STEP_SUMMARY"
+                echo "| rows verified | $total |" >> "$GITHUB_STEP_SUMMARY"
+                echo "| slices | $i |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+              exit 0
+            fi
+          done
+
+          # A partial drain must fail loudly. The old step ended in
+          # `|| echo no-op`, so a completely broken sweep looked identical to a
+          # healthy one and the freshness claim was unverifiable.
+          echo "::error::sweep did not drain after 40 slices; $remaining rows still unverified"
+          exit 1

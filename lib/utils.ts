@@ -30,17 +30,17 @@ export function extractYouTubeId(input: string): string | null {
   const text = input.trim();
   if (!text) return null;
 
+  // The second pattern also covers a bare 11-char id, so there is no separate
+  // bare-id pass afterwards.
   const patterns = [
     /(?:youtube\.com\/watch\?(?:.*&)?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([A-Za-z0-9_-]{11})/,
     /^([A-Za-z0-9_-]{11})$/,
   ];
   for (const re of patterns) {
     const m = text.match(re);
-    if (m && m[1] !== "youtube.com/shorts/") return m[1];
+    if (m && m[1]) return m[1];
   }
-
-  const bare = text.match(/^([A-Za-z0-9_-]{11})$/);
-  return bare ? bare[1] : null;
+  return null;
 }
 
 export function youtubeWatchUrl(id: string): string {
