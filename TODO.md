@@ -25,8 +25,16 @@ Everything else is polish.
 **Done so far on `feat/scale-foundation`:** the whole verdict mapping and dead-streak
 confirmation (Phase 1), the refresh drain loop end to end (Phase 3.1–3.3, 3.5), the
 collab scoping fix, submit validation + rate limiting, and the player engine
-(6.1–6.5, 6.7) including the Up Next panel. **Blocked on `DATABASE_URL`** for
-everything that has to be verified against a real Postgres.
+(6.1–6.5, 6.7) including the Up Next panel. Neon is live: project `mute-bread-01474345`,
+Postgres 18.6, 288 songs / 12 artists imported, `/api/health` reports `mode: "db"`.
+
+**Remaining blocker: `neon login` is a browser OAuth flow** — `neon link`,
+`neon config init` and `neon deploy` cannot run without it. Run it from your own
+terminal. Everything else can proceed without it.
+
+⚠️ Two credentials were pasted into chat: the Neon owner password (in
+`DATABASE_URL`) and a live `YOUTUBE_API_KEY`. Rotate both if this transcript is
+ever shared.
 
 ---
 
@@ -101,8 +109,8 @@ Service problem. YouTube Dev Policies III.E.4.d: API data must not be stored
 amendment explicitly excludes *"video titles, creator names"*. `catalog.json` is
 ids + titles + names, committed to git, never deleted.
 
-- [ ] **2.1** `npm run db:push` — apply the Phase 1 schema.
-- [ ] **2.2** `db:import` → 288 tracks into Neon.
+- [x] **2.1** `npm run db:push` — apply the Phase 1 schema.
+- [x] **2.2** `db:import` → 288 tracks into Neon.
 - [ ] **2.3** New `lib/queries.ts` replacing `lib/dataloader.ts` as the read path.
       **Every read targeted, every read `LIMIT`ed. Nothing loads the full
       catalog.** `getHomeFeed()`, `getArtistPage(slug, cursor)`,
@@ -110,7 +118,7 @@ ids + titles + names, committed to git, never deleted.
       and is called 2–3× per page — it must not exist.
       Indexes that make it work: `(artist_id, status, title)`,
       `(status, surfaced_at)`, `(status, last_checked_at)`.
-- [ ] **2.4** Pages render from the DB inside ISR (`revalidate = 3600`) +
+- [~] **2.4** API reads the DB (`mode: db` confirmed); pages still use the bundle (`revalidate = 3600`) +
       `revalidateTag` on ingest. **One query per cache window per page**, CDN
       serves the rest.
 - [ ] **2.5** `scripts/catalog.json` → **deleted from the runtime path.** A build

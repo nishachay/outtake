@@ -197,14 +197,62 @@ correctness. Any new randomized-looking value must be seeded the same way.
 
 ## Environment
 
-`.env.example` documents everything. Nothing is required for the public site to
-render (it falls back to the bundle). Required for admin/DB: `DATABASE_URL`,
-`ADMIN_KEY`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`,
-`ADMIN_GITHUB_LOGINS`. `YOUTUBE_API_KEY` is now effectively required — it supplies
-durations cheaply and unlocks playlist harvesting.
+`.env.example` documents everything. **Neon needs two URLs and they are not
+interchangeable:**
 
-`lib/db.ts` reads `DATABASE_URL` **once at module load**, so changing it mid-process
-has no effect.
+| Variable | Hostname | Used by |
+|---|---|---|
+| `DATABASE_URL` | contains `-pooler` | runtime (`lib/db.ts`) |
+| `DATABASE_URL_UNPOOLED` | no `-pooler` | `drizzle-kit` migrations only |
+
+The pooled endpoint routes through PgBouncer in **transaction mode**, which has no
+session affinity: session state does not survive between statements. `SET`,
+temp tables and multi-statement transactions silently do nothing, and migrations
+fail in ways that never mention pooling — *"relation does not exist"*, *"prepared
+statement already exists"*, SQLSTATE `25006` read-only transaction. This is not
+hypothetical: a `SET enable_seqscan = off` sent as three statements returned
+`on` and the query plan was unchanged.
+
+`drizzle.config.ts` warns when only the pooled URL is present. Runtime keeping the
+pooled URL is deliberate — `lib/db.ts` issues one-shot queries and benefits from
+bursting on a free-tier project.
+
+Rest: nothing is required for the public site to render (it falls back to the
+bundle). Required for admin/DB: the two DB URLs, `ADMIN_KEY`, `AUTH_SECRET`,
+`AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `ADMIN_GITHUB_LOGINS`. `YOUTUBE_API_KEY`
+is now effectively required — durations come cheaply from it and it is the only
+compliant way to enumerate a playlist.
+
+`lib/db.ts` reads `DATABASE_URL` **once at module load**, so changing it
+mid-process has no effect.
+
+## Working with the database
+
+```bash
+npm run db:push      # drizzle-kit, uses DATABASE_URL_UNPOOLED
+npm run db:import    # catalog.json -> Neon, idempotent
+npm run db:export    # Neon -> catalog.json, review the diff
+```
+
+`@neondatabase/serverless` v1.1.0 is installed and is **HTTP-only** — the `/ws`
+subpath existed in 0.x and was removed, so there is no session-preserving driver.
+Consequence: you cannot `SET` a planner GUC from a script against the HTTP driver,
+and `sql.unsafe(...)` returns the raw query object rather than rows. Use the
+tagged template form or `drizzle(...).execute(sql.raw(...))`, which returns
+`{ rows, fields }`.
+
+To inspect plans, read `pg_indexes.indexdef` and `EXPLAIN` output — but note you
+**cannot force the planner from a script here.** Neither a session-level `SET`
+(transaction pooling has no session, and the driver is HTTP-only) nor
+`&options=-c%20enable_seqscan%3Doff` on the connection string had any effect;
+`show enable_seqscan` still returned `on` and the plan was unchanged. To prove a
+plan choice at scale, load realistic row counts and measure, or install `pg` and
+use the direct endpoint. Do not conclude an index is wrong from a Seq Scan at
+small row counts — check the relation size first.
+
+The repo-local Neon skills in `.agents/skills/` (gitignored; reinstall with
+`neon skills -s neon -s neon-postgres -y`) document branching, migrations and
+`neon inspect db` diagnostics.
 
 ## CI / deploy
 
