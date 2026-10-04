@@ -1,120 +1,110 @@
 # outtake
 
-A verified archive of unreleased music. It indexes publicly available YouTube
-uploads and links to them. It hosts nothing.
+An index of publicly available YouTube uploads of unreleased music. It stores video
+ids and links out. It hosts nothing.
 
-Every track is machine-checked as playable before it appears, and re-checked on a
-rolling cycle. Tracks that stop working are hidden and return automatically when
-they don't.
+Every track is checked against YouTube's oEmbed endpoint before it is published,
+and re-checked on a rolling cycle. Tracks that stop working are hidden and return
+automatically when they don't.
 
-```
-288 tracks / 12 artists / 16 alternate takes
-Next.js 15 · Postgres (Neon) · Drizzle · YouTube Data API
-```
-
-## Why
-
-Unreleased recordings surface as ordinary public YouTube uploads. They get
-re-shared, taken down, and lost. Every existing index of this material is
-unsearchable, unverifiable, and full of dead links within weeks.
-
-This one only shows you links that work.
+Built with Next.js 15, Postgres, and the YouTube Data API.
 
 ## Running it
 
-Node 18+. You need a free Postgres database from
-[Neon](https://console.neon.tech) — the project takes two connection strings, and
-they are not interchangeable (see below).
+Requires Node 18 or newer and a Postgres database. The free tier at
+[Neon](https://console.neon.tech) is enough.
+
+Neon issues two connection strings for the same database and you need both. From
+your project's **Connect** dialog:
+
+- `DATABASE_URL` — the pooled endpoint, hostname contains `-pooler`
+- `DATABASE_URL_UNPOOLED` — the direct endpoint, no `-pooler`
 
 ```bash
+git clone https://github.com/nishachay/outtake.git
+cd outtake
 npm install
 cp .env.example .env
-npm run db:push      # create the schema
+```
+
+Fill in `.env`, then:
+
+```bash
+npm run db:push      # create the tables
 npm run db:import    # load scripts/catalog.json
 npm run dev          # http://localhost:3000
 ```
 
-In `.env`, set:
+Migrations run against `DATABASE_URL_UNPOOLED`. The pooled endpoint goes through
+PgBouncer in transaction mode, which does not keep session state between
+statements, and migration tools fail in ways that do not mention pooling.
+`drizzle.config.ts` warns if only the pooled URL is set.
 
-| Variable | Notes |
+### Scripts
+
+| Command | |
 | --- | --- |
-| `DATABASE_URL` | Pooled endpoint — hostname contains `-pooler`. Used at runtime. |
-| `DATABASE_URL_UNPOOLED` | Direct endpoint — no `-pooler`. Used by migrations only. |
-| `AUTH_SECRET` | `openssl rand -base64 32`. |
-| `YOUTUBE_API_KEY` | Only needed for harvesting and durations. |
+| `npm run dev` | Development server |
+| `npm run typecheck` | `tsc --noEmit`. This is the CI gate. |
+| `npm run build` | Typecheck, then prerender |
+| `npm run db:push` | Apply the schema |
+| `npm run db:import` | `scripts/catalog.json` into Postgres |
+| `npm run db:export` | Postgres back into `catalog.json` |
+| `npm run db:prefilter` | Triage the submission queue |
+| `npm run db:prefilter:apply` | Same, and write the verdicts |
 
-The pooled endpoint goes through PgBouncer in transaction mode, which has no session
-affinity. `SET`, temp tables and multi-statement transactions silently do nothing
-across statements, so migrations run on the direct connection instead.
-`drizzle.config.ts` warns if you only set the pooled one.
-
-### Commands
-
-```bash
-npm run typecheck    # tsc --noEmit. This is the gate.
-npm run build        # typecheck, then prerender
-npm run dev          # dev server
-npm run db:push      # apply schema
-npm run db:import    # catalog.json -> Postgres (idempotent)
-npm run db:export    # Postgres -> catalog.json (merge-only; review the diff)
-npm run db:prefilter      # triage the submission queue, write nothing
-npm run db:prefilter:apply # same, but writes
-```
-
-There is no test suite. Verification here is a network contract against YouTube,
-which unit tests mock into meaninglessness, so behavioural changes are checked with
-a throwaway script:
+There is no test suite. What this project verifies is a network contract against
+YouTube, and a mocked response only proves the mock was called. Check behavioural
+changes with a script instead:
 
 ```bash
 npx tsx --env-file=.env ./check.ts
 ```
 
+## How tracks are verified
+
+`lib/probe.ts` calls YouTube's oEmbed endpoint and maps the response:
+
+| Response | Means | Status |
+| --- | --- | --- |
+| 200 | exists and permits embedding | `active` |
+| 401 | exists, embedding disabled by the uploader | `blocked` |
+| 404 | private, deleted, or never existed | `unknown` |
+| 400 | malformed id | `invalid` |
+| network error | nothing learned | `unknown` |
+
+Two things about that mapping are easy to get wrong, so they are worth stating
+plainly.
+
+A 404 does not distinguish a private video from a deleted one from a video that
+never existed. YouTube will not say. So the server cannot conclude a video is gone
+from a single 404, and a row only becomes `dead` after two consecutive `unknown`
+results. An `active` or `blocked` result resets that counter, because a blocked
+video is demonstrably still there.
+
+`active` means the video exists and permits embedding. It does not mean it plays.
+Region blocks, Content ID claims and age gates all still return success — Google
+documents this in the `videos.list` reference. Actual playability is only visible
+in the player, so the player's `onError` handler reports what it sees back to the
+database. Listeners supply the signal that no API call can.
+
+`GET /api/health` returns `oldestUnverifiedAt`. The re-verification sweep runs
+oldest-first, so if that timestamp stops advancing the sweep has stalled.
+
 ## Layout
 
 ```
-app/                  routes; one catch-all API handler
-  api/[...path]/      every endpoint, delegating to lib/api-core.ts
-components/shell/     rail, turntable deck, player engine
-components/vault/     covers, track lists, home/artist/song views, search
-components/admin/     verification queue and track approval
-lib/
-  probe.ts            the verification gate
-  queries.ts          the read path
-  schema.ts           tables and the status vocabulary
-  feed.ts             seeded discovery rails
-  vault.ts            cover treatment, deck model, formatting
+app/                  routes, plus one catch-all API handler
+components/shell/     navigation rail, now-playing deck, player
+components/vault/     covers, track lists, home/artist/song views
+components/admin/     verification queue and approval
+lib/probe.ts          the verification gate
+lib/queries.ts        the read path
+lib/schema.ts         tables and the status vocabulary
+lib/feed.ts           seeded discovery rails
+lib/vault.ts          cover treatment and deck model
 scripts/              import, export, prefilter, catalog data
 ```
-
-## How verification works
-
-`lib/probe.ts` gates everything. It queries YouTube's oEmbed endpoint and maps the
-response to a status:
-
-| Reality | oEmbed | Status |
-| --- | --- | --- |
-| Exists, embeddable | 200 | `active` |
-| Exists, embedding disabled by uploader | 401 | `blocked` |
-| Private, deleted, or nonexistent — indistinguishable | 404 | `unknown` |
-| Malformed id | 400 | `invalid` |
-| Network failure | throws | `unknown` |
-
-Two properties of that table matter more than the table itself.
-
-`404` is returned for private, deleted and never-existed videos alike, so the
-server cannot prove a video is gone. A row only becomes `dead` after two
-consecutive `unknown` results; any `active` or `blocked` result resets that counter.
-This was not the original behaviour — the old code treated a network timeout as
-proof of death, and `db:export` then deleted the track from the archive.
-
-`active` means the video exists and permits embedding. It does not mean it plays.
-Region blocks, Content-ID claims and age gates all still return success. Google
-documents this gap explicitly. Actual playability is detected by the player's
-`onError` handler, which reports back to the database — so listeners generate the
-verification signal that no API can provide.
-
-`GET /api/health` reports `oldestUnverifiedAt`. The sweep runs oldest-first, so a
-timestamp that stops advancing means the sweep has stalled.
 
 ## Contributing
 
@@ -122,20 +112,20 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Rights
 
-This project hosts no audio or video. It stores YouTube video ids and links to
-public uploads. All rights remain with the rights holders.
+This project hosts no audio or video. All rights remain with the rights holders.
 
-Track owners and rights holders can hide any track immediately via `/report`.
-Three verified complaints auto-hide a track pending review. Valid takedown notices
-are honoured by removing content first and discussing afterwards.
+Owners and rights holders can hide any track through the report action in the app.
+Three verified complaints hide a track pending review. Takedown notices are
+honoured by removing content first and discussing afterwards.
 
-The embedded player follows YouTube's Required Minimum Functionality: it is visible,
-at least 200x200, sends `origin=`, and has no overlays drawn over it. Playlist
-enumeration uses the Data API rather than scraping, which the Terms prohibit.
+The embedded player follows YouTube's Required Minimum Functionality: it is
+visible, at least 200x200, sends an `origin` parameter, and has no overlays drawn
+over it. Playlists are enumerated with the Data API rather than scraped, which the
+Terms prohibit.
 
 ## Licence
 
 MIT for the code. The music is not ours to license.
 
-Portraits are from Wikimedia Commons; provenance is in
+Artist portraits are from Wikimedia Commons, with provenance recorded in
 `scripts/portrait-credits.json` and credited in the app.
