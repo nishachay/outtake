@@ -1,55 +1,33 @@
-# Security policy
+# Security
 
-## What's supported
+## Reporting
 
-The `main` branch. Older commits aren't actively maintained.
+Use [private vulnerability reporting](https://github.com/nishachay/outtake/security/advisories/new).
+Do not open a public issue.
 
----
+Include what you found, how to reproduce it, and the impact. Response within 48
+hours.
 
-## Reporting a vulnerability
+## Takedown requests
 
-Don't open a public issue for security bugs. Use [GitHub's private vulnerability reporting](https://github.com/nishachay/charlies-vault/security/advisories/new) instead.
+Rights holders: every track has a report action in the app that hides it
+immediately. That is the fastest route and needs no email.
 
-In your report, include what you found, how to reproduce it, and what you think the impact is. A suggested fix is optional but always welcome.
+Valid notices are honoured by hiding content first and discussing afterwards. Three
+verified complaints auto-hide a track pending review.
 
-You'll get a response within 48 hours and a status update within a week. If you want credit in the release notes, say so. If you'd rather stay anonymous, that's fine.
+This project hosts no media. It stores YouTube video ids and links to public
+uploads.
 
----
+## Notes for security review
 
-## DMCA and takedown requests
-
-This project streams music by embedding YouTube videos through the [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference). No audio files are hosted or stored anywhere this project controls.
-
-If you're a rights holder (Charlie Puth, his management, his label, or anyone authorized to act on his behalf) and want a track removed:
-
-1. Open a [GitHub issue](https://github.com/nishachay/charlies-vault/issues) with the track name, or
-2. Use the [private advisory channel](https://github.com/nishachay/charlies-vault/security/advisories/new) if you'd prefer a private conversation
-
-This is a non-commercial fan project. No ads, no monetization, nothing. Takedown requests get actioned within 24 hours.
-
----
-
-## Security architecture
-
-This is a static site. No backend in production. The attack surface is small by design.
-
-| Area | Status |
-|------|--------|
-| Server-side code in production | None. Vercel serves a single HTML file. |
-| User authentication | None. No passwords, no accounts. |
-| Database | None. All data lives in `index.html`. |
-| External API keys | None. YouTube IFrame API needs no credentials. |
-| `eval()` or `innerHTML` with user input | None. Search runs as a plain `.filter()` string match. |
-| File uploads in production | None. The upload endpoint only exists in `dev.js`, which never deploys. |
-| User data collected | None. `localStorage` stores liked track IDs and theme preference. That's it. |
-| Content Security Policy | Set via meta tag. Restricts what external resources can load. |
-
----
-
-## Known intentional limits
-
-`dev.js` uses `CORS: *`. Intentional for local development. Never sees production.
-
-The local `/api/save` endpoint writes to disk. Developer tool only, never deployed.
-
-The CSP requires `unsafe-inline` because all CSS and JS is inlined in a single HTML file. No external scripts load except YouTube's API.
+- One API surface: `app/api/[...path]/route.ts`, logic in `lib/api-core.ts`. Admin
+  routes require `Authorization: Bearer $ADMIN_KEY` or a GitHub session listed in
+  `ADMIN_GITHUB_LOGINS`.
+- Auth is `next-auth@5.0.0-beta.32`, a beta release, used for admin sign-in only.
+  It carried CVE-2026-73419 (CVSS 6.8); the pinned version includes the fix.
+- Rate limiting is per-instance, so concurrent function instances each keep their
+  own window. It deters casual spam, not a determined attacker.
+- `POST /api/submit` accepts untrusted input. It is length-capped,
+  honeypot-guarded, and rejects duplicate open submissions per video.
+- No secret is committed. If you find one, report it privately and rotate it.

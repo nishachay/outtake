@@ -283,7 +283,6 @@ The repo-local Neon skills in `.agents/skills/` (gitignored; reinstall with
 build there and merge when it holds up. Note `sourcing` (one commit, the review-queue
 and prefilter work) **was never pushed to origin**; it exists only locally.
 
-`README.md`, `RECOMMENDATIONS.md` and `SECURITY.md` are all stale — they document
-scripts that no longer exist (`fetch_artist_art.js`, `discover_youtube.js`,
-`db:verify`, `db:build`, `db:seed`, `refresh_songs.js`) and a report system that was
-retired. Trust the code over those files until they're rewritten.
+`README.md`, `CONTRIBUTING.md` and `SECURITY.md` are accurate. `RECOMMENDATIONS.md`
+was deleted — it described a v1 pipeline with six scripts that no longer exist and
+a report system that was retired.
