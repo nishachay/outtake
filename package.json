@@ -17,6 +17,7 @@
     "db:prefilter:apply": "npx tsx --env-file=.env scripts/prefilter-pending.ts --apply"
   },
   "dependencies": {
+    "@neon/env": "^1.5.0",
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.38.0",
