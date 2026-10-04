@@ -17,7 +17,7 @@
 import { eq } from "drizzle-orm";
 
 import { getDb } from "../lib/db";
-import { getCatalog } from "../lib/dataloader";
+import { bundledYoutubeIds } from "../lib/catalog-bundle";
 import { probeYouTube, type ProbeResult } from "../lib/probe";
 import { pendingSubmissions, songs, songVersions } from "../lib/schema";
 import { extractYouTubeId } from "../lib/utils";
@@ -69,7 +69,9 @@ async function main() {
   for (const v of await db.select({ y: songVersions.youtubeId }).from(songVersions)) {
     if (v.y) held.add(v.y);
   }
-  for (const t of getCatalog().tracks) held.add(t.youtubeId);
+  // Belt-and-braces dedupe: the DB plus every id this bundle has ever shipped,
+  // so a re-submitted track cannot slip back in via a stale bundle.
+  for (const id of bundledYoutubeIds()) held.add(id);
 
   const seen = new Set<string>();
   let kept = 0;

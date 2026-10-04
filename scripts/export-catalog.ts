@@ -4,7 +4,8 @@
  *   npm run db:export          (DATABASE_URL from .env)
  *
  * Reads artists + active songs + active versions from Neon and merges them
- * into scripts/catalog.json — the file the public site is built from.
+ * into scripts/catalog.json — a committed snapshot for reproducibility and
+ * disaster recovery. It is NOT a runtime read path; see lib/catalog-bundle.ts.
  * Merge, never mirror:
  *  - only `active` songs/versions are exported (dead/private stay out —
  *    the bundle must contain playable videos only);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 
-import type { ArtistView } from "@/lib/dataloader";
+import type { ArtistView } from "@/lib/queries";
 
 interface StreamedArtist extends ArtistView {
   existing?: boolean;

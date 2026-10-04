@@ -62,7 +62,7 @@ async function main() {
         id: slug,
         slug,
         name: a.name,
-        // tag and initials exist in catalog.json and dataloader reads them. They
+        // tag and initials exist in catalog.json and the UI reads them. They
         // were missing from the schema AND from this insert, so every DB-backed
         // artist hero rendered without its tagline or its avatar fallback.
         tag: a.tag ?? null,

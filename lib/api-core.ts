@@ -1,9 +1,8 @@
 import { and, asc, count, eq, isNull, or, sql } from "drizzle-orm";
 
 import type { DB } from "./db";
-import { getCatalog } from "./dataloader";
-import { getArtists, getQueueManifest } from "./queries";
-import type { Variant } from "./dataloader";
+import { getArtists, getQueueManifest, type Variant } from "./queries";
+
 import { probeYouTube, type ProbeResult } from "./probe";
 import {
   artists,
@@ -97,31 +96,62 @@ export async function handleQueueManifest(ctx: Ctx) {
   return getQueueManifest();
 }
 
-export async function handleSongs(ctx: Ctx, opts: { all?: boolean } = {}) {
-  if (!ctx.db) {
-    const bundle = getCatalog();
-    const tracks = opts.all
-      ? bundle.tracks
-      : bundle.tracks.filter((t) => t.status === "active");
-    return { songs: tracks };
-  }
-  try {
-    return { songs: await dbSongs(ctx.db, opts.all ?? false) };
-  } catch {
-    const bundle = getCatalog();
-    const tracks = opts.all
-      ? bundle.tracks
-      : bundle.tracks.filter((t) => t.status === "active");
-    return { songs: tracks };
-  }
+/**
+ * Paged. At 3,000 tracks an unpaginated `?all=1` response is a ~700 KB JSON
+ * payload on every call, which is a denial-of-service surface as much as a
+ * performance problem. `total` comes from a separate count so a client can page
+ * without fetching everything to learn how much there is.
+ */
+export async function handleSongs(
+  ctx: Ctx,
+  opts: { all?: boolean; limit?: number; offset?: number } = {},
+) {
+  if (!ctx.db) throw new ApiError(503, "database unavailable");
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const where = opts.all ? undefined : eq(songs.status, "active");
+  const [rows, totalRows] = await Promise.all([
+    ctx.db
+      .select({
+        id: songs.id,
+        songId: songs.id,
+        title: songs.title,
+        youtubeId: songs.youtubeId,
+        durationSec: songs.durationSec,
+        status: songs.status,
+        surfacedAt: songs.surfacedAt,
+        sourceCount: songs.sourceCount,
+        artistName: artists.name,
+        artistSlug: artists.slug,
+      })
+      .from(songs)
+      .innerJoin(artists, eq(songs.artistId, artists.id))
+      .where(where)
+      .orderBy(asc(artists.name), asc(songs.title))
+      .limit(limit)
+      .offset(offset),
+    ctx.db.select({ n: count() }).from(songs).where(where),
+  ]);
+
+  return {
+    total: Number(totalRows[0]?.n ?? 0),
+    limit,
+    offset,
+    songs: rows.map((r) => ({
+      ...r,
+      status: r.status as SongStatus,
+      surfacedAt: iso(r.surfacedAt),
+    })),
+  };
 }
 
 export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean } = {}) {
   const canon = id.includes("__v") ? id.split("__v")[0]! : id;
 
-  if (!ctx.db) return staticSongById(id, canon, opts.all ?? false);
+  if (!ctx.db) throw new ApiError(503, "database unavailable");
 
-  try {
+  {
     const songRow = await ctx.db.query.songs.findFirst({
       with: { artist: true },
       where: (s, { eq: e }) => e(s.id, canon),
@@ -187,25 +217,11 @@ export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean
         sourceCount: 1 + playableVersions.length,
       })),
     };
-  } catch (err) {
-    if (err instanceof ApiError) throw err;
-    // DB set but momentarily unreachable — never 500 the public site.
-    return staticSongById(id, canon, opts.all ?? false);
   }
 }
 
 function iso(d: Date | null): string | null {
   return d ? d.toISOString() : null;
-}
-
-function staticSongById(id: string, canon: string, all: boolean) {
-  const bundle = getCatalog();
-  const variant = bundle.tracks.find((t) => t.id === id);
-  if (!variant) throw new ApiError(404, "song not found");
-  const versions = bundle.tracks.filter(
-    (t) => t.songId === canon && t.id !== canon && (all || t.status === "active"),
-  );
-  return { song: variant, versions };
 }
 
 /** Listener reports were retired: the player auto-falls through dead
@@ -570,44 +586,6 @@ export async function handleAdminRefresh(
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function dbSongs(db: DB, all: boolean): Promise<Variant[]> {
-  const songRows = await db.query.songs.findMany({ with: { artist: true, versions: true } });
-
-  const out: Variant[] = [];
-  for (const s of songRows) {
-    if (!all && s.status !== "active") continue;
-    out.push({
-      id: s.id,
-      songId: s.id,
-      title: s.title,
-      youtubeId: s.youtubeId,
-      artistName: s.artist.name,
-      artistSlug: s.artist.slug,
-      durationSec: s.durationSec,
-      label: null,
-      status: s.status as SongStatus,
-      surfacedAt: iso(s.surfacedAt),
-      sourceCount: 1 + (s.versions?.length ?? 0),
-    });
-    for (const v of s.versions) {
-      if (!all && v.status !== "active") continue;
-      out.push({
-        id: v.id,
-        songId: s.id,
-        title: v.label || s.title,
-        youtubeId: v.youtubeId,
-        artistName: s.artist.name,
-        artistSlug: s.artist.slug,
-        durationSec: s.durationSec,
-        label: v.label ?? null,
-        status: v.status as SongStatus,
-        surfacedAt: iso(s.surfacedAt),
-        sourceCount: 1 + (s.versions?.length ?? 0),
-      });
-    }
-  }
-  return out;
-}
 
 interface UpsertSongArgs {
   probe: ProbeResult;

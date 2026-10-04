@@ -1,6 +1,13 @@
 /** Vault domain helpers — the original vault UI's cover system, deck-song
  *  model, and formatting. Deterministic covers, never scraped thumbnails. */
-import type { Variant } from "./dataloader";
+
+/** Strip a leading "<Artist> - " prefix from a title (artist-aware). */
+export function cleanTitle(title: string, artist: string): string {
+  const art = (artist || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(title || "")
+    .replace(new RegExp(`^${art}\\s*[-—]\\s*`, "i"), "")
+    .trim();
+}
 
 /** One playable source for a song: canonical original + alternate versions. */
 export interface VersionSource {
@@ -98,53 +105,9 @@ export function vaultInitial(title: string): string {
   return t.charAt(0).toUpperCase() || "?";
 }
 
-/** Strip a leading "<Artist> - " prefix from a title (artist-aware). */
-export function cleanTitle(title: string, artist: string): string {
-  const art = (artist || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return String(title || "")
-    .replace(new RegExp(`^${art}\\s*[-—]\\s*`, "i"), "")
-    .trim();
-}
 
 /** m:ss duration for player UI (0:00 fallback, like the original). */
 export function fmtTime(totalSeconds: number | null | undefined): string {
   if (!totalSeconds || !isFinite(totalSeconds) || totalSeconds <= 0) return "0:00";
   return `${Math.floor(totalSeconds / 60)}:${String(Math.floor(totalSeconds % 60)).padStart(2, "0")}`;
-}
-
-/**
- * Group canonical variants with their active alternate versions into
- * deck-ready songs. Mirrors the original activeVersionList():
- * canonical "V1 Original" first, then V2+ alts (skipping dupes).
- */
-export function toDeckSongs(canonicals: Variant[], all: Variant[]): DeckSong[] {
-  return canonicals.map((c) => {
-    const alts = all.filter(
-      (v) =>
-        v.songId === c.songId &&
-        v.id !== c.id &&
-        v.status === "active" &&
-        v.youtubeId &&
-        v.youtubeId !== c.youtubeId,
-    );
-    const sources: VersionSource[] = [
-      { key: "canonical", num: "V1", name: "Original", vid: c.youtubeId },
-      ...alts.map((v, i) => ({
-        key: v.id,
-        num: `V${i + 2}`,
-        name: v.label || "Alt",
-        vid: v.youtubeId,
-      })),
-    ];
-    return {
-      id: c.id,
-      songId: c.songId,
-      title: cleanTitle(c.title, c.artistName),
-      artistName: c.artistName,
-      artistSlug: c.artistSlug,
-      youtubeId: c.youtubeId,
-      durationSec: c.durationSec,
-      sources,
-    };
-  });
 }

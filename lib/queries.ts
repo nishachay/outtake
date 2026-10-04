@@ -1,9 +1,9 @@
 /**
  * The read path. Postgres is the only source of truth.
  *
- * Why this file exists: `getCatalog()` in lib/dataloader.ts rebuilt every array on
- * every call with no memoization, and pages called it two or three times each. At
- * 288 tracks that was tolerable. At 3,000 it is ~10 full catalog rebuilds per ISR
+ * Why this file exists: the old getCatalog() rebuilt every array on every call
+ * with no memoization, and pages called it two or three times each. At 288 tracks
+ * that was tolerable. At 3,000 it is ~10 full catalog rebuilds per ISR
  * regeneration, and the home page serialized the whole catalog into client props —
  * 132 KB of HTML today, ~1.3 MB raw at 3,000 tracks.
  *
@@ -18,8 +18,8 @@
 import { and, asc, count, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { getDb, type DB } from "./db";
-import { artists, songs, songVersions } from "./schema";
-import type { DeckSong, VersionSource } from "./vault";
+import { artists, songs, songVersions, type SongStatus } from "./schema";
+import { cleanTitle, type DeckSong, type VersionSource } from "./vault";
 import { slugify } from "./utils";
 
 /**
@@ -36,6 +36,24 @@ function db(): DB {
     );
   }
   return d;
+}
+
+/**
+ * The flattened playable-row shape the public API returns: a canonical song or one
+ * of its `__v{n}` versions. Defined here because this file produces it.
+ */
+export interface Variant {
+  id: string;
+  songId: string;
+  title: string;
+  youtubeId: string;
+  artistName: string;
+  artistSlug: string;
+  durationSec: number | null;
+  label: string | null;
+  status: SongStatus;
+  surfacedAt: string | null;
+  sourceCount: number;
 }
 
 // ── Row → DeckSong ──────────────────────────────────────────────────────────
@@ -80,7 +98,9 @@ function attachVersions(songRows: SongRow[], versionRows: VersionRow[]): DeckSon
   return songRows.map((s) => ({
     id: s.id,
     songId: s.id,
-    title: s.title,
+    // Strips a leading "Artist - " / "Artist — " prefix. uploader titles frequently
+    // carry it and it reads badly on a page that already shows the artist.
+    title: cleanTitle(s.title, s.artistName),
     artistName: s.artistName,
     artistSlug: s.artistSlug,
     youtubeId: s.youtubeId,
