@@ -10,13 +10,20 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
-import { artists, songs, songVersions, versionIdOf } from "../lib/schema";
+import { artists, songs, songVersions, versionIdOf, type SongStatus } from "../lib/schema";
 import { slugify } from "../lib/utils";
 
 import catalog from "../scripts/catalog.json";
 
 const RAW = catalog as {
-  artists?: Array<{ slug?: string; name: string; avatarUrl?: string | null; bio?: string | null }>;
+  artists?: Array<{
+    slug?: string;
+    name: string;
+    initials?: string;
+    tag?: string | null;
+    avatarUrl?: string | null;
+    bio?: string | null;
+  }>;
   songs?: Array<{
     id: string;
     title: string;
@@ -24,7 +31,8 @@ const RAW = catalog as {
     youtubeId: string;
     duration?: number | null;
     notes?: string | null;
-    status?: "active" | "dead" | "private";
+    status?: SongStatus;
+    surfacedAt?: string | null;
     versions?: Array<{ label?: string; youtubeId: string; notes?: string | null }>;
   }>;
 };
@@ -54,6 +62,11 @@ async function main() {
         id: slug,
         slug,
         name: a.name,
+        // tag and initials exist in catalog.json and dataloader reads them. They
+        // were missing from the schema AND from this insert, so every DB-backed
+        // artist hero rendered without its tagline or its avatar fallback.
+        tag: a.tag ?? null,
+        initials: a.initials ?? null,
         avatarUrl: a.avatarUrl ?? null,
         bio: a.bio ?? null,
       })
@@ -62,6 +75,8 @@ async function main() {
         set: {
           slug,
           name: a.name,
+          tag: a.tag ?? null,
+          initials: a.initials ?? null,
           avatarUrl: a.avatarUrl ?? null,
           bio: a.bio ?? null,
           updatedAt: new Date(),

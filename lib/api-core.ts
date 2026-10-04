@@ -13,7 +13,7 @@ import {
   nextStatusFor,
   type SongStatus,
 } from "./schema";
-import { extractYouTubeId, slugify } from "./utils";
+import { extractYouTubeId, initials as initialsOf, slugify } from "./utils";
 
 export class ApiError extends Error {
   constructor(
@@ -70,6 +70,10 @@ export async function handleArtists(ctx: Ctx) {
       .select({
         slug: artists.slug,
         name: artists.name,
+        // tag drives the artist-page hero line; initials drive the avatar
+        // fallback. Both were being dropped here even though the columns exist.
+        tag: artists.tag,
+        initials: artists.initials,
         avatarUrl: artists.avatarUrl,
         bio: artists.bio,
         trackCount: count(songs.id),
@@ -82,6 +86,8 @@ export async function handleArtists(ctx: Ctx) {
       artists: rows.map((r) => ({
         slug: r.slug,
         name: r.name,
+        tag: r.tag ?? null,
+        initials: r.initials ?? initialsOf(r.name),
         avatarUrl: r.avatarUrl,
         bio: r.bio,
         trackCount: r.trackCount,
