@@ -21,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { getDb } from "../lib/db";
+import type { SongStatus } from "../lib/schema";
 import { initials } from "../lib/utils";
 
 import catalog from "../scripts/catalog.json";
@@ -48,6 +49,14 @@ interface CatalogSong {
   youtubeId: string;
   duration?: number | null;
   notes?: string | null;
+  /**
+   * Present only when not "active". Rows kept in the bundle while unplayable
+   * (unknown / blocked / private) carry their status here; the public pages
+   * filter to active so they disappear from the UI immediately and return
+   * automatically when they heal.
+   */
+  status?: SongStatus;
+  surfacedAt?: string | null;
   versions?: CatalogVersion[];
 }
 
@@ -100,32 +109,50 @@ async function main() {
     console.log(`+ artist: ${d.name}`);
   }
 
-  // --- songs: active only, keep file order, append new ones ---
+  // --- songs: export active, retain not-yet-provable, drop only confirmed dead ---
+  //
+  // The previous rule was `status === "active"` and nothing else, which meant a
+  // single transient probe failure removed a track from the archive forever: the
+  // row was marked not-active, the next export dropped it, the drop was committed.
+  // Now only `dead` — which requires DEAD_THRESHOLD consecutive misses — is
+  // removed. Rows that are merely unplayable *right now* (unknown, blocked,
+  // private) stay in the bundle carrying their status so the public pages filter
+  // them out today and they reappear automatically the moment they heal.
   const songs: CatalogSong[] = [];
-  let skippedInactive = 0;
+  let skippedDead = 0;
+  let heldUnplayable = 0;
   let skippedVersions = 0;
   const seenDbIds = new Set<string>();
 
-  const activeSongs = dbSongs
+  const exportableSongs = dbSongs
     .filter((s) => {
-      if (s.status !== "active") {
-        skippedInactive++;
+      if (s.status === "dead") {
+        skippedDead++;
         return false;
       }
-      return true;
+      if (s.status === "active") return true;
+      // Not playable now, but not proven gone. Keep it only if it is already in
+      // the shipped bundle, so we never re-add a track we never published.
+      if (prevSongs.has(s.id)) {
+        heldUnplayable++;
+        return true;
+      }
+      return false;
     })
     .sort((a, b) =>
       a.artist.name.localeCompare(b.artist.name) || a.title.localeCompare(b.title),
     );
 
-  const toCatalogSong = (s: (typeof activeSongs)[number]): CatalogSong => {
+  const toCatalogSong = (s: (typeof exportableSongs)[number]): CatalogSong => {
     const prev = prevSongs.get(s.id);
     const versions: CatalogVersion[] = [...s.versions]
       .filter((v) => {
-        if (v.status !== "active") {
+        // Same rule as canonicals: drop only confirmed dead versions.
+        if (v.status === "dead") {
           skippedVersions++;
           return false;
         }
+        if (v.status !== "active") return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -142,17 +169,22 @@ async function main() {
       duration: s.durationSec ?? prev?.duration ?? null,
       notes: s.notes ?? prev?.notes ?? null,
     };
+    // Only write status when it is not the implicit default, so the common case
+    // (everything active) produces a byte-identical bundle to before.
+    if (s.status !== "active") out.status = s.status as SongStatus;
+    const surfaced = s.surfacedAt?.toISOString() ?? prev?.surfacedAt ?? null;
+    if (surfaced) out.surfacedAt = surfaced;
     if (versions.length) out.versions = versions;
     return out;
   };
 
   for (const s of RAW.songs ?? []) {
-    const row = activeSongs.find((d) => d.id === s.id);
+    const row = exportableSongs.find((d) => d.id === s.id);
     if (!row) continue; // absent from DB export set — never delete here (reported below)
     seenDbIds.add(row.id);
     songs.push(toCatalogSong(row));
   }
-  for (const s of activeSongs) {
+  for (const s of exportableSongs) {
     if (seenDbIds.has(s.id)) continue;
     seenDbIds.add(s.id);
     songs.push(toCatalogSong(s));
@@ -169,7 +201,8 @@ async function main() {
   fs.writeFileSync(CATALOG_PATH, JSON.stringify({ artists, songs }, null, 2) + "\n");
   console.log(
     `\nwrote ${CATALOG_PATH}: ${artists.length} artists, ${songs.length} songs ` +
-      `(skipped ${skippedInactive} inactive songs, ${skippedVersions} inactive versions)`,
+      `(skipped ${skippedDead} confirmed-dead songs, held ${heldUnplayable} unplayable-but-not-dead,`
+      + ` skipped ${skippedVersions} confirmed-dead versions)`,
   );
   console.log("Review the diff, then commit + redeploy.");
 }

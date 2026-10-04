@@ -10,6 +10,7 @@ import {
   songs,
   songVersions,
   versionIdOf,
+  nextStatusFor,
   type SongStatus,
 } from "./schema";
 import { extractYouTubeId, slugify } from "./utils";
@@ -149,7 +150,8 @@ export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean
           durationSec: songRow.durationSec,
           label: wantedVersion.label ?? null,
           status: wantedVersion.status as SongStatus,
-          reportCount: wantedVersion.reportCount,
+          surfacedAt: iso(songRow.surfacedAt),
+          sourceCount: 1 + playableVersions.length,
         }
       : {
           id: songRow.id,
@@ -161,7 +163,8 @@ export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean
           durationSec: songRow.durationSec,
           label: null,
           status: songRow.status as SongStatus,
-          reportCount: songRow.reportCount,
+          surfacedAt: iso(songRow.surfacedAt),
+          sourceCount: 1 + playableVersions.length,
         };
 
     return {
@@ -176,7 +179,8 @@ export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean
         durationSec: songRow.durationSec,
         label: v.label ?? null,
         status: v.status as SongStatus,
-        reportCount: v.reportCount,
+        surfacedAt: iso(songRow.surfacedAt),
+        sourceCount: 1 + playableVersions.length,
       })),
     };
   } catch (err) {
@@ -184,6 +188,10 @@ export async function handleSongById(ctx: Ctx, id: string, opts: { all?: boolean
     // DB set but momentarily unreachable — never 500 the public site.
     return staticSongById(id, canon, opts.all ?? false);
   }
+}
+
+function iso(d: Date | null): string | null {
+  return d ? d.toISOString() : null;
 }
 
 function staticSongById(id: string, canon: string, all: boolean) {
@@ -394,6 +402,7 @@ export async function handleAdminRefresh(
       youtubeId: songs.youtubeId,
       durationSec: songs.durationSec,
       status: songs.status,
+      deadStreak: songs.deadStreak,
     })
     .from(songs)
     .where(
@@ -406,6 +415,8 @@ export async function handleAdminRefresh(
       id: songVersions.id,
       youtubeId: songVersions.youtubeId,
       status: songVersions.status,
+      deadStreak: songVersions.deadStreak,
+      durationSec: songVersions.durationSec,
     })
     .from(songVersions)
     .where(
@@ -417,37 +428,40 @@ export async function handleAdminRefresh(
   const results: string[] = [];
 
   for (const s of staleSongs) {
-    const probe = await probeYouTube(s.youtubeId);
-    const nextStatus: SongStatus = probe.playable
-      ? "active"
-      : probe.status === "private"
-        ? "private"
-        : "dead";
+    // Skip the duration fetch unless we actually need it — it costs an extra
+    // origin hit (or a Data API unit) and is the reason a full sweep used to
+    // blow past the function timeout.
+    const needsDuration = s.durationSec == null;
+    const probe = await probeYouTube(s.youtubeId, { withDuration: needsDuration });
+    const next = nextStatusFor(s.status as SongStatus, probe, s.deadStreak);
     await db
       .update(songs)
       .set({
-        status: nextStatus,
+        status: next.status,
+        deadStreak: next.deadStreak,
         durationSec: probe.durationSec ?? s.durationSec,
         lastCheckedAt: new Date(),
       })
       .where(eq(songs.id, s.id));
     probed++;
-    results.push(`song:${s.youtubeId}:${probe.status}`);
+    results.push(`song:${s.youtubeId}:${probe.status}->${next.status}`);
   }
 
   for (const v of staleVersions) {
-    const probe = await probeYouTube(v.youtubeId);
-    const nextStatus: SongStatus = probe.playable
-      ? "active"
-      : probe.status === "private"
-        ? "private"
-        : "dead";
+    const needsDuration = v.durationSec == null;
+    const probe = await probeYouTube(v.youtubeId, { withDuration: needsDuration });
+    const next = nextStatusFor(v.status as SongStatus, probe, v.deadStreak);
     await db
       .update(songVersions)
-      .set({ status: nextStatus, lastCheckedAt: new Date() })
+      .set({
+        status: next.status,
+        deadStreak: next.deadStreak,
+        durationSec: probe.durationSec ?? v.durationSec,
+        lastCheckedAt: new Date(),
+      })
       .where(eq(songVersions.id, v.id));
     probed++;
-    results.push(`version:${v.youtubeId}:${probe.status}`);
+    results.push(`version:${v.youtubeId}:${probe.status}->${next.status}`);
   }
 
   return { ok: true, probed, results };
@@ -473,7 +487,8 @@ async function dbSongs(db: DB, all: boolean): Promise<Variant[]> {
       durationSec: s.durationSec,
       label: null,
       status: s.status as SongStatus,
-      reportCount: s.reportCount,
+      surfacedAt: iso(s.surfacedAt),
+      sourceCount: 1 + (s.versions?.length ?? 0),
     });
     for (const v of s.versions) {
       if (!all && v.status !== "active") continue;
@@ -487,7 +502,8 @@ async function dbSongs(db: DB, all: boolean): Promise<Variant[]> {
         durationSec: s.durationSec,
         label: v.label ?? null,
         status: v.status as SongStatus,
-        reportCount: v.reportCount,
+        surfacedAt: iso(s.surfacedAt),
+        sourceCount: 1 + (s.versions?.length ?? 0),
       });
     }
   }

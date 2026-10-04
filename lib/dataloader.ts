@@ -1,4 +1,5 @@
 import catalog from "../scripts/catalog.json";
+import type { SongStatus } from "./schema";
 import { initials as initialsOf, slugify } from "./utils";
 
 /** Bundled, verified catalog. Ships with the app so the public site works with no DB. */
@@ -18,7 +19,8 @@ interface RawCatalog {
     youtubeId: string;
     duration?: number | null;
     notes?: string | null;
-    status?: "active" | "dead" | "private";
+    status?: SongStatus;
+    surfacedAt?: string | null;
     versions?: Array<{
       label?: string;
       youtubeId: string;
@@ -38,8 +40,11 @@ export interface Variant {
   artistSlug: string;
   durationSec: number | null;
   label: string | null; // e.g. "Demo Take 3"
-  status: "active" | "dead" | "private";
-  reportCount: number;
+  status: SongStatus;
+  /** When the track first entered the archive — drives "recently surfaced". */
+  surfacedAt: string | null;
+  /** Denormalized count of verified alternate takes. */
+  sourceCount: number;
 }
 
 export interface ArtistView {
@@ -87,7 +92,8 @@ function buildVariants(): Variant[] {
       durationSec: s.duration ?? null,
       label: null,
       status: s.status ?? "active",
-      reportCount: 0,
+      surfacedAt: s.surfacedAt ?? null,
+      sourceCount: 1 + (s.versions?.length ?? 0),
     };
     out.push(base);
     if (s.versions?.length) {
